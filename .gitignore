@@ -4,3 +4,8 @@ __pycache__/
 data/
 models/
 *.zip
+*.pt
+*.pth
+*.log
+mel_cache*/
+features.npz

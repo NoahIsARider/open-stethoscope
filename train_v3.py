@@ -1,0 +1,578 @@
+#!/usr/bin/env python3
+"""
+train_v3.py -- v2 model with TRUE held-out test evaluation + ablation switches.
+
+Based on train_v2.py (FusionNet, multi-location masked-learned-attention fusion,
+class-balance sampling, aux head, augmentation). Changes:
+
+1. SPLIT: patient-level stratified 70/15/15 (seed 42, patients never overlap).
+   70% train / 15% val (early stopping, selection metric val macro-F1) /
+   15% held-out TEST (never seen during training; final reported metrics).
+   The split is persisted to v3_split_seed42.json so every ablation run uses
+   the IDENTICAL split.
+
+2. OFFICIAL CHALLENGE METRIC (CirCor / George B. Moody PhysioNet Challenge 2022,
+   Reyna et al., PLOS Digit Health 2023, Eq. 1):
+       s_murmur = (5*m_PP + 3*m_UU + m_AA)
+                / (5*(m_PP+m_UP+m_AP) + 3*(m_PU+m_UU+m_AU) + (m_PA+m_UA+m_AA))
+   columns = ground truth, rows = predictions. Weights: Present 5 / Unknown 3 /
+   Absent 1. Also per-class sensitivity (=recall) and specificity.
+
+3. ABLATION SWITCHES (--ablation):
+   none : full pipeline (fusion + single-location baseline) on the new split
+   A    : no attention fusion  -> mean pooling of per-location embeddings
+   B    : no auxiliary head     -> lambda=0
+   C    : no class-balance sampling (uniform patient sampling, weighted CE kept)
+   D    : no data augmentation  (deterministic 8s window, no stretch/mask/noise)
+   E    : single-location baseline only (same budget, retrained on new split)
+
+4. DISK MEL CACHE (mel_cache_v3/) so the 6 runs do not recompute features.
+"""
+import os, re, sys, time, argparse, random, json, hashlib
+import numpy as np
+import pandas as pd
+import soundfile as sf
+import librosa
+import torch
+import torch.nn as nn
+import torch.nn.functional as F
+
+SEED = 42
+SR = 4000
+N_FRAMES = 126
+N_MELS = 40
+N_FFT = 512
+HOP = 256
+FMIN, FMAX = 25, 2000
+
+DATA_CSV = '/root/heart-data/training_data.csv'
+DATA_DIR = '/root/heart-data/training_data'
+WORKDIR = '/root/heart-train'
+MEL_CACHE_DIR = os.path.join(WORKDIR, 'mel_cache_v3')
+SPLIT_JSON = os.path.join(WORKDIR, 'v3_split_seed42.json')
+RESULT_JSON = os.path.join(WORKDIR, 'exp_results.json')
+
+LOCS = ['AV', 'PV', 'TV', 'MV']
+LOC2IDX = {l: i for i, l in enumerate(LOCS)}
+MURMUR_MAP = {'Absent': 0, 'Unknown': 1, 'Present': 2}
+CLASS_NAMES = ['Absent', 'Unknown', 'Present']
+WA_W = np.array([0.1, 0.2, 1.0])            # legacy v2 weighted-acc proxy
+CH_W = np.array([1.0, 3.0, 5.0])            # OFFICIAL challenge weights (Absent, Unknown, Present)
+AUX_LAMBDA = 0.3
+
+
+def set_seed(s):
+    random.seed(s); np.random.seed(s)
+    torch.manual_seed(s); torch.cuda.manual_seed_all(s)
+    torch.backends.cudnn.deterministic = True
+
+
+# ----------------------------------------------------------------------------
+# data
+# ----------------------------------------------------------------------------
+def collect_data():
+    df = pd.read_csv(DATA_CSV)
+    labels = {}
+    for pid, mur in zip(df['Patient ID'].astype(str).str.strip(), df['Murmur']):
+        if mur in MURMUR_MAP:
+            labels[int(pid)] = MURMUR_MAP[mur]
+    patient_locs = {}
+    n_wav = 0
+    for root, _, files in os.walk(DATA_DIR):
+        for f in files:
+            if not f.endswith('.wav'):
+                continue
+            m = re.match(r'(\d+)_(AV|PV|TV|MV)(?:_\d+)?\.wav', f)
+            if not m:
+                continue
+            pid, loc = int(m.group(1)), m.group(2)
+            if pid not in labels:
+                continue
+            patient_locs.setdefault(pid, {}).setdefault(loc, []).append(os.path.join(root, f))
+            n_wav += 1
+    patient_locs = {p: v for p, v in patient_locs.items() if v}
+    dist = {c: sum(1 for p in patient_locs if labels[p] == i) for i, c in enumerate(CLASS_NAMES)}
+    print(f'[data] patients={len(patient_locs)} wavs={n_wav} labels={dist}', flush=True)
+    return patient_locs, labels
+
+
+def full_mel(path):
+    x, sr = sf.read(path, dtype='float32')
+    if sr != SR:
+        x = librosa.resample(x, orig_sr=sr, target_sr=SR)
+    m = librosa.feature.melspectrogram(y=x, sr=SR, n_fft=N_FFT, hop_length=HOP,
+                                       n_mels=N_MELS, fmin=FMIN, fmax=FMAX)
+    m = librosa.power_to_db(m, ref=np.max)
+    return m.astype(np.float32)
+
+
+def _cache_path(path):
+    return os.path.join(MEL_CACHE_DIR, hashlib.sha1(path.encode()).hexdigest()[:20] + '.npy')
+
+
+def precompute_mels(paths, mel_cache):
+    os.makedirs(MEL_CACHE_DIR, exist_ok=True)
+    t0 = time.time(); n_computed = 0
+    for i, p in enumerate(paths):
+        if p in mel_cache:
+            continue
+        cp = _cache_path(p)
+        if os.path.exists(cp):
+            mel_cache[p] = np.load(cp)
+        else:
+            mel_cache[p] = full_mel(p)
+            np.save(cp, mel_cache[p])
+            n_computed += 1
+        if (i + 1) % 400 == 0:
+            print(f'[feat] {i+1}/{len(paths)} ({time.time()-t0:.0f}s)', flush=True)
+    print(f'[feat] cache ready: {len(mel_cache)} mels ({n_computed} computed, '
+          f'{time.time()-t0:.0f}s)', flush=True)
+
+
+# ----------------------------------------------------------------------------
+# augmentation
+# ----------------------------------------------------------------------------
+def augment_mel(m, rng):
+    s = rng.uniform(0.9, 1.1)
+    if abs(s - 1.0) > 0.02:
+        T = m.shape[1]
+        new_T = max(40, int(round(T * s)))
+        idx = np.linspace(0, T - 1, new_T)
+        m = np.stack([np.interp(idx, np.arange(T), m[i]) for i in range(m.shape[0])], axis=0)
+    T = m.shape[1]
+    if T >= N_FRAMES:
+        st = rng.randint(0, T - N_FRAMES + 1)
+        m = m[:, st:st + N_FRAMES]
+    else:
+        m = np.pad(m, ((0, 0), (0, N_FRAMES - T)))
+    if rng.random() < 0.5:
+        f0 = rng.randint(0, N_MELS - 2)
+        f_len = rng.randint(2, min(5, N_MELS - f0) + 1)
+        m[f0:f0 + f_len, :] -= rng.uniform(1.5, 3.0)
+    if rng.random() < 0.5:
+        t0 = rng.randint(0, N_FRAMES - 5)
+        t_len = rng.randint(5, min(16, N_FRAMES - t0) + 1)
+        m[:, t0:t0 + t_len] -= rng.uniform(1.5, 3.0)
+    m += rng.normal(0.0, 0.05, size=m.shape).astype(np.float32)
+    return m.astype(np.float32)
+
+
+def eval_mel(m):
+    if m.shape[1] >= N_FRAMES:
+        return m[:, :N_FRAMES].astype(np.float32)
+    return np.pad(m, ((0, 0), (0, N_FRAMES - m.shape[1]))).astype(np.float32)
+
+
+# ----------------------------------------------------------------------------
+# model
+# ----------------------------------------------------------------------------
+class FusionNet(nn.Module):
+    def __init__(self, n_class=3, embed=256, use_attn=True):
+        super().__init__()
+        self.use_attn = use_attn
+        self.encoder = nn.Sequential(
+            nn.Conv2d(1, 64, 3, padding=1), nn.BatchNorm2d(64), nn.ReLU(inplace=True), nn.MaxPool2d(2),
+            nn.Conv2d(64, 128, 3, padding=1), nn.BatchNorm2d(128), nn.ReLU(inplace=True), nn.MaxPool2d(2),
+            nn.Conv2d(128, 256, 3, padding=1), nn.BatchNorm2d(256), nn.ReLU(inplace=True), nn.MaxPool2d(2),
+        )
+        self.avgpool = nn.AdaptiveAvgPool2d(1)
+        self.attn_vec = nn.Parameter(torch.randn(embed) * 0.02)
+        self.attn_bias = nn.Parameter(torch.zeros(1))
+        self.fc1 = nn.Linear(embed, 128)
+        self.fc2 = nn.Linear(128, n_class)
+        self.aux = nn.Linear(128, 2)
+
+    def encode(self, x):
+        e = self.encoder(x)
+        return self.avgpool(e).flatten(1)
+
+    def forward(self, x, mask):
+        B, K = x.shape[0], x.shape[1]
+        e = self.encode(x.view(B * K, 1, N_MELS, N_FRAMES)).view(B, K, -1)
+        if self.use_attn:
+            scores = torch.einsum('bkf,f->bk', e, self.attn_vec) + self.attn_bias
+            scores = scores.masked_fill(~mask, -1e9)
+            alpha = torch.softmax(scores, dim=1)
+        else:
+            alpha = mask.float()
+            alpha = alpha / alpha.sum(1, keepdim=True).clamp(min=1.0)
+        fused = (alpha.unsqueeze(-1) * e).sum(1)
+        h = F.dropout(F.relu(self.fc1(fused)), 0.3, training=self.training)
+        return self.fc2(h), self.aux(h), alpha
+
+    def per_location_logits(self, e):
+        h = F.relu(self.fc1(e))
+        return self.fc2(h)
+
+
+def count_params(m):
+    return sum(p.numel() for p in m.parameters() if p.requires_grad)
+
+
+# ----------------------------------------------------------------------------
+# batch building / metrics
+# ----------------------------------------------------------------------------
+def make_patient_batch(pid_list, labels, patient_locs, mel_cache, rng, train=True, aug=True):
+    B = len(pid_list)
+    x = np.zeros((B, 4, 1, N_MELS, N_FRAMES), np.float32)
+    mask = np.zeros((B, 4), dtype=bool)
+    y = np.zeros(B, np.int64)
+    for bi, pid in enumerate(pid_list):
+        y[bi] = labels[pid]
+        for loc, paths in patient_locs[pid].items():
+            k = LOC2IDX[loc]
+            if train:
+                path = paths[rng.randint(len(paths))]
+                x[bi, k, 0] = augment_mel(mel_cache[path], rng) if aug else eval_mel(mel_cache[path])
+            else:
+                path = max(paths, key=lambda p: mel_cache[p].shape[1])
+                x[bi, k, 0] = eval_mel(mel_cache[path])
+            mask[bi, k] = True
+    return x, mask, y
+
+
+def make_wav_batch(wav_list, labels, mel_cache, rng, train=True, aug=True):
+    B = len(wav_list)
+    x = np.zeros((B, 4, 1, N_MELS, N_FRAMES), np.float32)
+    mask = np.zeros((B, 4), dtype=bool)
+    y = np.zeros(B, np.int64)
+    for bi, (pid, loc, path) in enumerate(wav_list):
+        y[bi] = labels[pid]
+        k = LOC2IDX[loc]
+        if train:
+            x[bi, k, 0] = augment_mel(mel_cache[path], rng) if aug else eval_mel(mel_cache[path])
+        else:
+            x[bi, k, 0] = eval_mel(mel_cache[path])
+        mask[bi, k] = True
+    return x, mask, y
+
+
+def metrics(y_true, y_pred, n=3):
+    y_true = np.asarray(y_true); y_pred = np.asarray(y_pred)
+    cm = np.zeros((n, n), dtype=np.int64)
+    for t, p in zip(y_true, y_pred):
+        cm[t, p] += 1
+    acc = (y_true == y_pred).mean()
+    recall = np.array([cm[i, i] / max(1, cm[i].sum()) for i in range(n)])
+    prec = np.array([cm[i, i] / max(1, cm[:, i].sum()) for i in range(n)])
+    f1 = 2 * prec * recall / (prec + recall + 1e-9)
+    wa_legacy = float((WA_W * recall).sum() / WA_W.sum())
+    # official challenge weighted accuracy (Eq.1, weights Absent1/Unknown3/Present5)
+    ch_num = float((CH_W * np.diag(cm)).sum())
+    ch_den = float((CH_W * cm.sum(1)).sum())
+    ch_wa = ch_num / ch_den if ch_den > 0 else float('nan')
+    total = cm.sum()
+    spec = np.zeros(n)
+    for i in range(n):
+        tn = total - cm[i].sum() - cm[:, i].sum() + cm[i, i]
+        fp = cm[:, i].sum() - cm[i, i]
+        spec[i] = tn / max(1, tn + fp)
+    return acc, recall, f1, wa_legacy, ch_wa, cm, spec
+
+
+def evaluate(model, pid_list, labels, patient_locs, mel_cache, device, batch=64):
+    """Returns (fusion_preds, vote_preds, y, loc_y, loc_p)."""
+    model.eval()
+    all_fused, all_vote, all_y = [], [], []
+    loc_y, loc_p = [], []
+    with torch.no_grad():
+        for i in range(0, len(pid_list), batch):
+            pl = pid_list[i:i + batch]
+            x, mask, y = make_patient_batch(pl, labels, patient_locs, mel_cache, None, train=False)
+            xb = torch.from_numpy(x).to(device)
+            maskb = torch.from_numpy(mask).to(device)
+            logits, _, _ = model(xb, maskb)
+            all_fused.extend(logits.argmax(1).cpu().numpy())
+            B, K = x.shape[0], x.shape[1]
+            e = model.encode(xb.view(B * K, 1, N_MELS, N_FRAMES))
+            plog = torch.softmax(model.per_location_logits(e).view(B, K, 3), dim=-1).cpu().numpy()
+            all_vote.extend(plog.mean(axis=1).argmax(axis=1))
+            all_y.extend(y)
+            for bi in range(B):
+                for k in range(K):
+                    if mask[bi, k]:
+                        loc_y.append(int(y[bi]))
+                        loc_p.append(int(plog[bi, k].argmax()))
+    return (np.array(all_fused), np.array(all_vote), np.array(all_y),
+            np.array(loc_y), np.array(loc_p))
+
+
+def report(name, y_true, y_pred, loc_y=None, loc_p=None):
+    acc, recall, f1, wa_leg, ch_wa, cm, spec = metrics(y_true, y_pred)
+    print(f'--- {name} ---', flush=True)
+    print(f'  accuracy      : {acc:.4f}', flush=True)
+    print(f'  macro-F1      : {f1.mean():.4f}  (per-class {np.round(f1,3).tolist()})', flush=True)
+    print(f'  legacy wacc   : {wa_leg:.4f} (w 0.1/0.2/1.0)', flush=True)
+    print(f'  CHALLENGE WA  : {ch_wa:.4f} (official s_murmur, w Absent1/Unknown3/Present5)', flush=True)
+    print(f'  per-class recall/sens: {np.round(recall,3).tolist()}', flush=True)
+    print(f'  per-class spec       : {np.round(spec,3).tolist()}', flush=True)
+    print('  confusion (rows=true [Absent,Unknown,Present], cols=pred):', flush=True)
+    print('  ' + str(cm.tolist()), flush=True)
+    if loc_y is not None:
+        acc_l, recall_l, f1_l, wa_leg_l, ch_wa_l, cm_l, spec_l = metrics(loc_y, loc_p)
+        print(f'  [wav-level] acc={acc_l:.4f} macroF1={f1_l.mean():.4f} challengeWA={ch_wa_l:.4f} '
+              f'recall={np.round(recall_l,3).tolist()}', flush=True)
+    return {'accuracy': float(acc), 'macro_f1': float(f1.mean()),
+            'legacy_wacc': float(wa_leg), 'challenge_wa': float(ch_wa),
+            'recall': np.round(recall, 4).tolist(), 'specificity': np.round(spec, 4).tolist(),
+            'cm': cm.tolist()}
+
+
+def load_or_make_split(patient_locs, labels):
+    if os.path.exists(SPLIT_JSON):
+        with open(SPLIT_JSON) as f:
+            d = json.load(f)
+        print(f'[split] loaded existing {SPLIT_JSON}', flush=True)
+        return d['train'], d['val'], d['test']
+    rng = np.random.RandomState(SEED)
+    all_pids = sorted(patient_locs.keys())   # python ints (JSON-safe)
+    groups = {c: [] for c in range(3)}
+    for p in all_pids:
+        groups[labels[p]].append(p)
+    train, val, test = [], [], []
+    for c in range(3):
+        lst = groups[c][:]
+        rng.shuffle(lst)
+        n = len(lst)
+        n_tr = int(round(0.70 * n)); n_va = int(round(0.15 * n))
+        train.extend(lst[:n_tr]); val.extend(lst[n_tr:n_tr + n_va]); test.extend(lst[n_tr + n_va:])
+    train = sorted(train); val = sorted(val); test = sorted(test)
+    with open(SPLIT_JSON, 'w') as f:
+        json.dump({'train': train, 'val': val, 'test': test}, f)
+    print(f'[split] NEW 70/15/15 saved to {SPLIT_JSON}', flush=True)
+    return train, val, test
+
+
+# ----------------------------------------------------------------------------
+# main
+# ----------------------------------------------------------------------------
+def main():
+    ap = argparse.ArgumentParser()
+    ap.add_argument('--ablation', default='none', choices=['none', 'A', 'B', 'C', 'D', 'E'])
+    ap.add_argument('--epochs', type=int, default=20)
+    ap.add_argument('--batch', type=int, default=32)
+    ap.add_argument('--lr', type=float, default=6e-4)
+    ap.add_argument('--grad-clip', type=float, default=1.0)
+    ap.add_argument('--data-csv', default=DATA_CSV, help='path to training_data.csv')
+    ap.add_argument('--data-dir', default=DATA_DIR, help='path to training_data/ wav folder')
+    ap.add_argument('--workdir', default=WORKDIR, help='output dir for checkpoints/logs')
+    args = ap.parse_args()
+    global DATA_CSV, DATA_DIR, WORKDIR, MEL_CACHE_DIR, SPLIT_JSON, RESULT_JSON
+    DATA_CSV, DATA_DIR, WORKDIR = args.data_csv, args.data_dir, args.workdir
+    MEL_CACHE_DIR = os.path.join(WORKDIR, 'mel_cache_v3')
+    SPLIT_JSON = os.path.join(WORKDIR, 'v3_split_seed42.json')
+    RESULT_JSON = os.path.join(WORKDIR, 'exp_results.json')
+    ab = args.ablation
+
+    no_attn = (ab == 'A')
+    no_aux = (ab == 'B')
+    no_balance = (ab == 'C')
+    no_aug = (ab == 'D')
+    single_only = (ab == 'E')
+
+    set_seed(SEED)
+    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+    print(f'[env] device={device} torch={torch.__version__} ablation={ab}', flush=True)
+    if torch.cuda.is_available():
+        print(f'[env] gpu={torch.cuda.get_device_name(0)}', flush=True)
+
+    rng = np.random.RandomState(SEED)
+    patient_locs, labels = collect_data()
+    train_pids, val_pids, test_pids = load_or_make_split(patient_locs, labels)
+    dist = lambda pids: [sum(1 for p in pids if labels[p] == c) for c in range(3)]
+    print(f'[split] train={len(train_pids)} dist={dist(train_pids)}', flush=True)
+    print(f'[split] val  ={len(val_pids)} dist={dist(val_pids)}', flush=True)
+    print(f'[split] test ={len(test_pids)} dist={dist(test_pids)}', flush=True)
+
+    all_paths = []
+    for pid in list(train_pids) + list(val_pids) + list(test_pids):
+        for paths in patient_locs[pid].values():
+            all_paths.extend(paths)
+    mel_cache = {}
+    precompute_mels(all_paths, mel_cache)
+
+    counts = np.array(dist(train_pids), dtype=float)
+    class_w = np.sqrt(len(train_pids) / (counts * 3))
+    class_w = class_w / class_w.mean()
+    print(f'[imb] train counts={counts.astype(int).tolist()} class_weights='
+          f'{np.round(class_w, 3).tolist()}', flush=True)
+    patient_w = np.array([class_w[labels[p]] for p in train_pids], dtype=float)
+    patient_probs = patient_w / patient_w.sum()
+    wav_list_tr = [(pid, loc, path) for pid in train_pids
+                   for loc, paths in patient_locs[pid].items() for path in paths]
+    wav_w = np.array([class_w[labels[pid]] for pid, _, _ in wav_list_tr], dtype=float)
+    wav_probs = wav_w / wav_w.sum()
+
+    loss_fn = nn.CrossEntropyLoss(weight=torch.tensor(class_w, dtype=torch.float32, device=device))
+    aux_fn = nn.CrossEntropyLoss()
+    patience = 5
+    n_per_epoch = len(train_pids)
+
+    result = {'ablation': ab, 'split': {'train': len(train_pids), 'val': len(val_pids),
+                                        'test': len(test_pids)},
+              'val': {}, 'test': {}, 'train_info': {}}
+
+    # ================= FUSION MODEL (skipped for ablation E) =================
+    if not single_only:
+        print(f'\n======== TRAIN FUSION MODEL (ablation={ab}) ========', flush=True)
+        model = FusionNet(n_class=3, use_attn=not no_attn).to(device)
+        n_params = count_params(model)
+        print(f'[model] params={n_params:,} use_attn={not no_attn} aux={not no_aux} '
+              f'balance={not no_balance} aug={not no_aug}', flush=True)
+        opt = torch.optim.AdamW(model.parameters(), lr=args.lr, weight_decay=1e-4)
+        sched = torch.optim.lr_scheduler.CosineAnnealingLR(opt, T_max=args.epochs)
+        best_f1, best_ep, bad_epochs, best_state = -1.0, -1, 0, None
+        t0 = time.time(); ep_times = []
+        for ep in range(1, args.epochs + 1):
+            model.train()
+            if no_balance:
+                idx = rng_choice_uniform(n_per_epoch, rng)
+            else:
+                idx = rng.choice(n_per_epoch, size=n_per_epoch, p=patient_probs, replace=True)
+            n_batches = (n_per_epoch + args.batch - 1) // args.batch
+            run_loss, run_corr = 0.0, 0
+            t_ep = time.time()
+            for b in range(n_batches):
+                x, mask, y = make_patient_batch(
+                    [train_pids[i] for i in idx[b * args.batch:(b + 1) * args.batch]],
+                    labels, patient_locs, mel_cache, rng, train=True, aug=not no_aug)
+                xb = torch.from_numpy(x).to(device); mb = torch.from_numpy(mask).to(device)
+                yb = torch.from_numpy(y).to(device)
+                opt.zero_grad()
+                logits, aux_logits, _ = model(xb, mb)
+                loss = loss_fn(logits, yb)
+                if not no_aux:
+                    loss = loss + AUX_LAMBDA * aux_fn(aux_logits, (yb > 0).long())
+                loss.backward()
+                if args.grad_clip > 0:
+                    torch.nn.utils.clip_grad_norm_(model.parameters(), args.grad_clip)
+                opt.step()
+                run_loss += loss.item() * len(x); run_corr += (logits.argmax(1).cpu().numpy() == y).sum()
+            sched.step()
+            f_pred, v_pred, y_v, loc_y, loc_p = evaluate(model, val_pids, labels, patient_locs, mel_cache, device)
+            acc, recall, f1, wa_leg, ch_wa, cm, spec = metrics(y_v, f_pred)
+            ep_times.append(time.time() - t_ep)
+            print(f'[fusion ep {ep:02d}] loss={run_loss/n_per_epoch:.4f} train_acc={run_corr/n_per_epoch:.4f} '
+                  f'val_acc={acc:.4f} macroF1={f1.mean():.4f} chWA={ch_wa:.4f} '
+                  f'recall={np.round(recall, 3).tolist()} ({ep_times[-1]:.1f}s)', flush=True)
+            if f1.mean() > best_f1:
+                best_f1, best_ep, bad_epochs = f1.mean(), ep, 0
+                best_state = {k: v.cpu().clone() for k, v in model.state_dict().items()}
+            else:
+                bad_epochs += 1
+                if bad_epochs >= patience:
+                    print(f'[fusion] early stop at epoch {ep}', flush=True)
+                    break
+        model.load_state_dict(best_state)
+        result['train_info']['fusion'] = {'best_epoch': best_ep, 'val_macro_f1': float(best_f1),
+                                          'epochs_run': ep}
+        print(f'[fusion] best epoch={best_ep} val macroF1={best_f1:.4f} | '
+              f'{np.mean(ep_times):.1f}s/epoch | total {time.time()-t0:.0f}s', flush=True)
+
+        print('\n===== FUSION MODEL: VAL (early-stop selection set) =====', flush=True)
+        f_f, v_f, y_f, lf_y, lf_p = evaluate(model, val_pids, labels, patient_locs, mel_cache, device)
+        result['val']['fusion'] = report('FUSION val (attention-fused)', y_f, f_f)
+        result['val']['fusion_vote'] = report('FUSION-vote val (per-loc majority)', y_f, v_f)
+
+        print('\n===== FUSION MODEL: HELD-OUT TEST (never seen) =====', flush=True)
+        f_f, v_f, y_f, lf_y, lf_p = evaluate(model, test_pids, labels, patient_locs, mel_cache, device)
+        result['test']['fusion'] = report('FUSION test (attention-fused)', y_f, f_f)
+        result['test']['fusion_vote'] = report('FUSION-vote test (per-loc majority)', y_f, v_f)
+
+        if ab == 'none':
+            torch.save({'state_dict': best_state, 'epoch': best_ep, 'val_macro_f1': float(best_f1),
+                        'n_params': n_params, 'arch': 'FusionNet', 'kind': 'fusion-v3',
+                        'classes': CLASS_NAMES}, os.path.join(WORKDIR, 'best_model_v3_full.pt'))
+        elif ab in ('A', 'B', 'C', 'D'):
+            torch.save({'state_dict': best_state, 'epoch': best_ep, 'val_macro_f1': float(best_f1),
+                        'arch': 'FusionNet', 'ablation': ab, 'classes': CLASS_NAMES},
+                       os.path.join(WORKDIR, f'best_model_v3_{ab}.pt'))
+
+    # ================= SINGLE-LOCATION BASELINE (fusion runs skip unless none/E) =================
+    if single_only or ab == 'none':
+        print('\n======== TRAIN SINGLE-LOCATION BASELINE (wav-level, equal budget) ========', flush=True)
+        model_s = FusionNet(n_class=3).to(device)
+        print(f'[model] params={count_params(model_s):,} (one position per sample)', flush=True)
+        opt_s = torch.optim.AdamW(model_s.parameters(), lr=args.lr, weight_decay=1e-4)
+        sched_s = torch.optim.lr_scheduler.CosineAnnealingLR(opt_s, T_max=args.epochs)
+        best_f1s, best_eps, bad_epochs_s, best_state_s = -1.0, -1, 0, None
+        t0s = time.time(); ep_times_s = []
+        for ep in range(1, args.epochs + 1):
+            model_s.train()
+            if no_balance:
+                idx = rng_choice_uniform(n_per_epoch, rng)
+            else:
+                idx = rng.choice(len(wav_list_tr), size=n_per_epoch, p=wav_probs, replace=True)
+            n_batches = (n_per_epoch + args.batch - 1) // args.batch
+            run_loss, run_corr = 0.0, 0
+            t_ep = time.time()
+            for b in range(n_batches):
+                x, mask, y = make_wav_batch([wav_list_tr[i] for i in idx[b * args.batch:(b + 1) * args.batch]],
+                                            labels, mel_cache, rng, train=True, aug=not no_aug)
+                xb = torch.from_numpy(x).to(device); mb = torch.from_numpy(mask).to(device)
+                yb = torch.from_numpy(y).to(device)
+                opt_s.zero_grad()
+                logits, aux_logits, _ = model_s(xb, mb)
+                loss = loss_fn(logits, yb)
+                if not no_aux:
+                    loss = loss + AUX_LAMBDA * aux_fn(aux_logits, (yb > 0).long())
+                loss.backward()
+                if args.grad_clip > 0:
+                    torch.nn.utils.clip_grad_norm_(model_s.parameters(), args.grad_clip)
+                opt_s.step()
+                run_loss += loss.item() * len(x); run_corr += (logits.argmax(1).cpu().numpy() == y).sum()
+            sched_s.step()
+            f_pred, v_pred, y_v, loc_y, loc_p = evaluate(model_s, val_pids, labels, patient_locs, mel_cache, device)
+            acc_v, recall_v, f1_v, wa_v, ch_v, cm_v, spec_v = metrics(y_v, v_pred)
+            ep_times_s.append(time.time() - t_ep)
+            print(f'[single ep {ep:02d}] loss={run_loss/n_per_epoch:.4f} train_acc={run_corr/n_per_epoch:.4f} '
+                  f'vote_acc={acc_v:.4f} macroF1={f1_v.mean():.4f} chWA={ch_v:.4f} '
+                  f'({ep_times_s[-1]:.1f}s)', flush=True)
+            if f1_v.mean() > best_f1s:
+                best_f1s, best_eps, bad_epochs_s = f1_v.mean(), ep, 0
+                best_state_s = {k: v.cpu().clone() for k, v in model_s.state_dict().items()}
+            else:
+                bad_epochs_s += 1
+                if bad_epochs_s >= patience:
+                    print(f'[single] early stop at epoch {ep}', flush=True)
+                    break
+        model_s.load_state_dict(best_state_s)
+        result['train_info']['single'] = {'best_epoch': best_eps, 'val_macro_f1': float(best_f1s)}
+        print(f'[single] best epoch={best_eps} val macroF1={best_f1s:.4f} | '
+              f'{np.mean(ep_times_s):.1f}s/epoch | total {time.time()-t0s:.0f}s', flush=True)
+
+        print('\n===== SINGLE-LOCATION: VAL =====', flush=True)
+        f_s, v_s, y_s, ls_y, ls_p = evaluate(model_s, val_pids, labels, patient_locs, mel_cache, device)
+        result['val']['single_vote'] = report('SINGLE val (patient vote)', y_s, v_s, ls_y, ls_p)
+        print('\n===== SINGLE-LOCATION: HELD-OUT TEST =====', flush=True)
+        f_s, v_s, y_s, ls_y, ls_p = evaluate(model_s, test_pids, labels, patient_locs, mel_cache, device)
+        result['test']['single_vote'] = report('SINGLE test (patient vote)', y_s, v_s, ls_y, ls_p)
+
+        if ab == 'none':
+            torch.save({'state_dict': best_state_s, 'epoch': best_eps, 'val_macro_f1': float(best_f1s),
+                        'arch': 'FusionNet', 'kind': 'single-v3', 'classes': CLASS_NAMES},
+                       os.path.join(WORKDIR, 'best_model_v3_single.pt'))
+        elif single_only:
+            torch.save({'state_dict': best_state_s, 'epoch': best_eps, 'val_macro_f1': float(best_f1s),
+                        'arch': 'FusionNet', 'kind': 'single-v3', 'classes': CLASS_NAMES},
+                       os.path.join(WORKDIR, 'best_model_v3_E.pt'))
+
+    # persist results
+    results = {}
+    if os.path.exists(RESULT_JSON):
+        with open(RESULT_JSON) as f:
+            results = json.load(f)
+    results[ab] = result
+    with open(RESULT_JSON, 'w') as f:
+        json.dump(results, f, indent=1, default=lambda o: int(o) if isinstance(o, np.integer)
+                  else (float(o) if isinstance(o, np.floating) else str(o)))
+    print(f'[result] saved to {RESULT_JSON}', flush=True)
+    print('================ DONE ================', flush=True)
+
+
+def rng_choice_uniform(n, rng):
+    return rng.randint(0, n, size=n)
+
+
+if __name__ == '__main__':
+    main()
