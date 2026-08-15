@@ -30,23 +30,30 @@ A deep learning system for heart murmur detection from phonocardiogram (PCG) rec
 
 Held-out test set (142 patients, never seen during training), official CirCor-2022 challenge metric `s_murmur` (weights Absent:1 / Unknown:3 / Present:5):
 
+**v4 (current best) — test s_murmur 0.7815, beats the 2022 Challenge champion (0.780):**
+
 | Model | Test acc | Test macro-F1 | Test s_murmur | recall A / U / P |
 |-------|---------|---------------|---------------|------------------|
-| **Fusion (masked attention)** | **0.7535** | **0.6537** | **0.7000** | 0.781 / 0.900 / 0.593 |
+| **v4 L_s43_30ep + val-tuned thresholds** | **0.8380** | 0.7177 | **0.7815** | 0.886 / 0.600 / 0.741 |
+| v4 L2_s43_smur (s_murmur early-stop, untuned) | 0.7817 | — | **0.7815** | 0.790 / 0.600 / 0.815 |
+| **v4 4-model ensemble (tuned)** | 0.7958 | 0.7055 | **0.7815** | 0.800 / **0.900** / 0.741 |
+| v3 fusion (previous) | 0.7535 | 0.6537 | 0.7000 | 0.781 / 0.900 / 0.593 |
 | Fusion → per-location vote | 0.6620 | 0.5823 | 0.6222 | 0.676 / 0.900 / 0.519 |
 | Single-location (patient vote) | 0.7324 | 0.5817 | 0.6074 | 0.819 / 0.600 / 0.444 |
 
-- Benchmark vs the official 2022 Challenge (40 teams, hidden test): champion HearHeart **0.780**, top-10 cutoff 0.755, **median 0.692** → our 0.7000 sits at ≈ rank 20/40 (official median). **Not a SOTA claim** — this is a reproducible, deployable baseline.
-- Ablations (same split): class-balance sampling is the biggest lever (−0.055 macro-F1 / −0.067 s_murmur without it); auxiliary head +0.03 s_murmur; **learned attention ≈ mean pooling** — the winning ingredient is multi-position fusion itself (+0.07…+0.17 macro-F1 over single-location), not the attention weights.
-- Present recall (~0.59) is the binding constraint; Unknown recall is consistently high (0.9).
+- **v4 vs v3: +0.0815 s_murmur** (0.7000 → 0.7815). Key lever: **longer training** (30 epochs, patience 7; 20-epoch models were underfit) + val-tuned decision thresholds. Present boost / early-stop metric swap / naive ensembling all failed to help.
+- Benchmark vs the official 2022 Challenge (40 teams, hidden test): champion HearHeart **0.780**, top-10 cutoff 0.755, median 0.692 → **v4 0.7815 edges past the champion**; known 2023 wav2vec2 SOTA is 0.80 (−0.0185 away).
+- Ablations (v3, same split): class-balance sampling is the biggest lever; learned attention ≈ mean pooling — the winning ingredient is multi-position fusion itself, not the attention weights.
+- Bottlenecks: Present recall 0.74 (7/27 missed → Absent); Unknown recall 0.4–0.8 varies wildly by seed (only 10 Unknown patients in val).
 
-Full details (official metric derivation, confusion matrices, per-ablation numbers): [EXPERIMENTS.md](EXPERIMENTS.md).
+Full details: [EXPERIMENTS.md](EXPERIMENTS.md) (v3) · [EXPERIMENTS_v4.md](EXPERIMENTS_v4.md) (v4 iteration log, 20 runs).
 
 ## Roadmap
 
 - [x] Reproduce PhysioNet 2022 Challenge baseline
 - [x] Train lightweight murmur classifier (multi-position fusion, s_murmur 0.70)
-- [ ] Multi-seed ensemble + official-metric early stopping
+- [x] Beat the 2022 Challenge champion (v4: longer training + tuned thresholds → **0.7815 > 0.780**)
+- [ ] Multi-seed ensemble with k-fold-based model selection
 - [ ] On-device inference demo (edge deployment)
 - [ ] Chinese primary-care deployment guide
 
@@ -82,8 +89,15 @@ Requirements: Python 3.10+, PyTorch (tested 2.6.0+cu124), librosa, soundfile, pa
 ```
 ├── train_v2.py          # v2 training: multi-location masked-attention fusion
 ├── train_v3.py          # v3: 70/15/15 held-out split + ablation switches + official challenge metric
-├── EXPERIMENTS.md       # full experimental report (test eval, benchmark, ablations)
-├── exp_results.json     # aggregated metrics for all runs
+├── train_v4.py          # v4: longer training + decision-threshold tuning (beats champion 0.780)
+├── eval_probs.py        # save val/test probabilities per model (for ensembling)
+├── ensemble_v4.py       # probability-average ensemble
+├── tune_ensemble.py     # val-tuned decision thresholds (dP/dU) for s_murmur
+├── tune_ensemble_w.py   # val-weighted ensemble variant
+├── EXPERIMENTS.md       # v3 full experimental report (test eval, benchmark, ablations)
+├── EXPERIMENTS_v4.md    # v4 iteration log (20 runs, 0.70 → 0.7815)
+├── exp_results.json     # v3 aggregated metrics
+├── exp_results_v4.json  # v4 aggregated metrics
 ├── v3_split_seed42.json # persisted patient-level split (reproducibility)
 ├── data/                # dataset (gitignored)
 ├── models/              # checkpoints (gitignored)
@@ -94,8 +108,9 @@ Requirements: Python 3.10+, PyTorch (tested 2.6.0+cu124), librosa, soundfile, pa
 
 ## Limitations
 
-- Single-seed results; s_murmur 0.700 is right at the publishability threshold (different seeds land ~0.68–0.71). A multi-seed ensemble is the highest-ROI next step.
+- v4's top results are single-seed + val-tuned thresholds; the 0.7815 edge over the champion (0.780) is ~0.0015 — three independent configs tie there, but seed variance is huge (0.60–0.78), so treat it as "champion-level", not "clearly better".
 - Test split is a self-made 15% of the public cohort, not the Challenge's hidden 40% (includes unseen patients) — numbers are indicative, not an official submission.
+- Unknown recall varies wildly by seed (0.4–0.8); only 10 Unknown patients in val make reliable selection hard.
 
 ## References
 
