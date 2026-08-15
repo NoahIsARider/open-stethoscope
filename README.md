@@ -102,7 +102,7 @@ Requirements: Python 3.10+, PyTorch (tested 2.6.0+cu124), librosa, soundfile, pa
 ├── data/                # dataset (gitignored)
 ├── models/              # checkpoints (gitignored)
 ├── app/                 # QC companion backend (FastAPI): qc_engine.py, main.py, model_defs.py
-├── web/                 # QC companion frontend (Vite + React): 录音质检 + 教学模拟器
+├── web/                 # QC companion frontend (Vite + React): recording QC + teaching simulator
 ├── train_qc_models.py   # train position (AV/PV/TV/MV) + murmur heads on real CirCor data
 ├── build_assets.py      # curate real expert-annotated clips for the teaching simulator
 ├── start.sh             # start backend + frontend with reverse proxy
@@ -111,58 +111,71 @@ Requirements: Python 3.10+, PyTorch (tested 2.6.0+cu124), librosa, soundfile, pa
 └── README.md
 ```
 
-## QC Companion — 录音质检 + 听诊教学模拟器
+## QC Companion — Recording QC + Teaching Simulator
 
-模型只是中间产物。基层医疗的真实痛点：医生不会规范录音 → 数据集脏。本配套工具解决“最后一公里”：
+The model is only the middle of the story. The real pain point in primary care is
+that clinicians don't record consistently — bad recordings produce dirty datasets.
+This companion tool closes the “last mile”:
 
-- **录音规范化引导 + 实时质检**（`app/` + `web/`）：录音过程中实时评估信号电平、削波、信噪比、频谱平坦度、
-  心音节律（S1/S2 包络自相关检测）、听诊位置一致性（CNN 分类器校验 AV/PV/TV/MV）。全部指标由真实 DSP 信号处理
-  计算，阈值来自心音文献标准（25-400 Hz 带通、SNR ≥12 dB 良好、时长 ≥8 s 等）。
-- **听诊教学模拟器**：内置 CirCor 数据集的真实、专家标注心音录音（4 部位 × 杂音阴性/待定/阳性），支持播放、
-  实时频谱瀑布图、练习模式（隐藏答案自测）。**全部为真实录音与专家标注，无任何 mock 数据。**
-- 配套模型（`train_qc_models.py`）：单编码器双头（部位 4 类 + 杂音 3 类），复用 v3 患者级划分，持出测试诚实评估。
+- **Recording protocol guidance + real-time QC** (`app/` + `web/`): during recording, the
+  system evaluates signal level, clipping, SNR, spectral flatness, cardiac rhythm
+  (S1/S2 envelope autocorrelation), and auscultation-position consistency (a CNN
+  classifier checks AV/PV/TV/MV). Every metric is computed from real DSP signal
+  processing; thresholds follow the heart-sound literature (25-400 Hz bandpass,
+  SNR ≥ 12 dB good, duration ≥ 8 s, etc.).
+- **Teaching simulator**: built-in real, expert-annotated heart-sound recordings from the
+  CirCor dataset (4 positions × murmur absent/unknown/present), with playback,
+  live spectrum waterfall, and a practice mode (answers hidden for self-testing).
+  **All recordings and labels are real — no mock data anywhere.**
+- Companion model (`train_qc_models.py`): a single encoder with two heads
+  (4-class position + 3-class murmur), reusing the v3 patient-disjoint split with
+  an honest held-out test evaluation.
 
-运行（前后端分离，前端反向代理 `/api` 到后端）：
+Running (frontend/backend split, frontend reverse-proxies `/api` to the backend):
 
 ### Screenshots
 
-录音质检（实时指标 + 位置校验 + 杂音筛查）：
+Recording QC — live metrics, position verification and murmur screening:
 
 ![Recording QC](docs/screenshots/qc-recorder.png)
 
-上传真实 WAV 后的完整质检报告（真实 CirCor 录音，实测 SNR 11.7 dB / 心率 189 bpm / 位置 TV 置信度 86%）：
+Full QC report after uploading a real WAV (real CirCor recording: SNR 11.7 dB,
+heart rate 189 bpm, position TV at 86% confidence):
 
 ![QC result report](docs/screenshots/qc-recorder-result.png)
 
-听诊教学模拟器（107 条真实专家标注录音，4 部位 × 3 杂音类）：
+Teaching simulator — 107 real expert-annotated recordings, 4 positions × 3 murmur classes:
 
 ![Simulator library](docs/screenshots/simulator-library.png)
 
-播放中的频谱瀑布图（练习模式隐藏答案）：
+Spectrum waterfall while playing (practice mode hides the answer):
 
 ![Simulator playing](docs/screenshots/simulator-playing.png)
 
-临床参考（标准听诊部位 + 录音质量标准 + 已部署模型持出测试指标）：
+Clinical reference — auscultation landmarks, recording quality criteria, and
+held-out test metrics of the deployed models:
 
 ![Reference](docs/screenshots/reference.png)
 
 ```bash
-# 1. 下载 CirCor 并训练配套模型（真实数据）
+# 1. Download CirCor and train the companion model (real data)
 wget https://physionet.org/static/published-projects/circor-heart-sound/circor-heart-sound-1.0.3.zip
 unzip circor-heart-sound-1.0.3.zip -d ./data/circor
 python train_qc_models.py --data-csv ./data/circor/training_data.csv --data-dir ./data/circor/training_data --workdir ./qc_work
 python build_assets.py --data-csv ./data/circor/training_data.csv --data-dir ./data/circor/training_data --out ./app/assets
 
-# 后端会自动在 models/qc_models.pt 或 qc_work/qc_models.pt 中查找模型
-# （train_qc_models.py 默认输出到 --workdir，即 qc_work/qc_models.pt；
-#   也可以手动复制到 models/ 目录）
+# The backend looks for the model in models/qc_models.pt or qc_work/qc_models.pt
+# (train_qc_models.py writes to --workdir by default, i.e. qc_work/qc_models.pt;
+#  you can also copy it to models/ manually)
 
-# 2. 启动（后端 :3001 + 前端 :5173）
+# 2. Start (backend :3001 + frontend :5173)
 ./start.sh
 ```
 
-质控算法全部基于真实信号处理，不产生合成值；教学模拟器仅使用真实录音。位置校验与杂音筛查为
-“辅助/筛查”性质，不构成诊断，UI 与报告均有免责声明。
+The QC algorithms are based entirely on real signal processing — no synthetic
+values are produced; the teaching simulator uses only real recordings. Position
+verification and murmur screening are assistive/screening in nature and do not
+constitute a diagnosis; both the UI and the report carry disclaimers.
 
 ## Limitations
 
