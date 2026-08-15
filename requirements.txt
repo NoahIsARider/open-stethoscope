@@ -2,4 +2,8 @@ torch>=2.0
 numpy
 pandas
 scipy
-tqdm
+librosa
+soundfile
+fastapi
+uvicorn[standard]
+python-multipart

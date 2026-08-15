@@ -9,3 +9,8 @@ models/
 *.log
 mel_cache*/
 features.npz
+app/assets/clips/
+app/assets/manifest.json
+qc_work/
+web/node_modules/
+web/dist/

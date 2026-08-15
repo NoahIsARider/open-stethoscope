@@ -101,10 +101,46 @@ Requirements: Python 3.10+, PyTorch (tested 2.6.0+cu124), librosa, soundfile, pa
 ├── v3_split_seed42.json # persisted patient-level split (reproducibility)
 ├── data/                # dataset (gitignored)
 ├── models/              # checkpoints (gitignored)
+├── app/                 # QC companion backend (FastAPI): qc_engine.py, main.py, model_defs.py
+├── web/                 # QC companion frontend (Vite + React): 录音质检 + 教学模拟器
+├── train_qc_models.py   # train position (AV/PV/TV/MV) + murmur heads on real CirCor data
+├── build_assets.py      # curate real expert-annotated clips for the teaching simulator
+├── start.sh             # start backend + frontend with reverse proxy
 ├── notebooks/           # exploratory notebooks
 ├── scripts/             # utility scripts
 └── README.md
 ```
+
+## QC Companion — 录音质检 + 听诊教学模拟器
+
+模型只是中间产物。基层医疗的真实痛点：医生不会规范录音 → 数据集脏。本配套工具解决“最后一公里”：
+
+- **录音规范化引导 + 实时质检**（`app/` + `web/`）：录音过程中实时评估信号电平、削波、信噪比、频谱平坦度、
+  心音节律（S1/S2 包络自相关检测）、听诊位置一致性（CNN 分类器校验 AV/PV/TV/MV）。全部指标由真实 DSP 信号处理
+  计算，阈值来自心音文献标准（25-400 Hz 带通、SNR ≥12 dB 良好、时长 ≥8 s 等）。
+- **听诊教学模拟器**：内置 CirCor 数据集的真实、专家标注心音录音（4 部位 × 杂音阴性/待定/阳性），支持播放、
+  实时频谱瀑布图、练习模式（隐藏答案自测）。**全部为真实录音与专家标注，无任何 mock 数据。**
+- 配套模型（`train_qc_models.py`）：单编码器双头（部位 4 类 + 杂音 3 类），复用 v3 患者级划分，持出测试诚实评估。
+
+运行（前后端分离，前端反向代理 `/api` 到后端）：
+
+```bash
+# 1. 下载 CirCor 并训练配套模型（真实数据）
+wget https://physionet.org/static/published-projects/circor-heart-sound/circor-heart-sound-1.0.3.zip
+unzip circor-heart-sound-1.0.3.zip -d ./data/circor
+python train_qc_models.py --data-csv ./data/circor/training_data.csv --data-dir ./data/circor/training_data --workdir ./qc_work
+python build_assets.py --data-csv ./data/circor/training_data.csv --data-dir ./data/circor/training_data --out ./app/assets
+
+# 后端会自动在 models/qc_models.pt 或 qc_work/qc_models.pt 中查找模型
+# （train_qc_models.py 默认输出到 --workdir，即 qc_work/qc_models.pt；
+#   也可以手动复制到 models/ 目录）
+
+# 2. 启动（后端 :3001 + 前端 :5173）
+./start.sh
+```
+
+质控算法全部基于真实信号处理，不产生合成值；教学模拟器仅使用真实录音。位置校验与杂音筛查为
+“辅助/筛查”性质，不构成诊断，UI 与报告均有免责声明。
 
 ## Limitations
 
