@@ -124,6 +124,28 @@ Requirements: Python 3.10+, PyTorch (tested 2.6.0+cu124), librosa, soundfile, pa
 
 运行（前后端分离，前端反向代理 `/api` 到后端）：
 
+### Screenshots
+
+录音质检（实时指标 + 位置校验 + 杂音筛查）：
+
+![Recording QC](docs/screenshots/qc-recorder.png)
+
+上传真实 WAV 后的完整质检报告（真实 CirCor 录音，实测 SNR 11.7 dB / 心率 189 bpm / 位置 TV 置信度 86%）：
+
+![QC result report](docs/screenshots/qc-recorder-result.png)
+
+听诊教学模拟器（107 条真实专家标注录音，4 部位 × 3 杂音类）：
+
+![Simulator library](docs/screenshots/simulator-library.png)
+
+播放中的频谱瀑布图（练习模式隐藏答案）：
+
+![Simulator playing](docs/screenshots/simulator-playing.png)
+
+临床参考（标准听诊部位 + 录音质量标准 + 已部署模型持出测试指标）：
+
+![Reference](docs/screenshots/reference.png)
+
 ```bash
 # 1. 下载 CirCor 并训练配套模型（真实数据）
 wget https://physionet.org/static/published-projects/circor-heart-sound/circor-heart-sound-1.0.3.zip
