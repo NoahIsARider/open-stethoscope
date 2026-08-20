@@ -46,14 +46,33 @@ Held-out test set (142 patients, never seen during training), official CirCor-20
 - Ablations (v3, same split): class-balance sampling is the biggest lever; learned attention ≈ mean pooling — the winning ingredient is multi-position fusion itself, not the attention weights.
 - Bottlenecks: Present recall 0.74 (7/27 missed → Absent); Unknown recall 0.4–0.8 varies wildly by seed (only 10 Unknown patients in val).
 
-Full details: [EXPERIMENTS.md](EXPERIMENTS.md) (v3) · [EXPERIMENTS_v4.md](EXPERIMENTS_v4.md) (v4 iteration log, 20 runs).
+**Independent re-validation & honest generalization (2026-08-20, new server, official labels):**
+
+| check | result |
+|---|---|
+| Exact reproduction of all 4 v4 seeds | 0.7593 / 0.7778 / 0.6556 / 0.7704 — **identical to original** |
+| Best single (s43 + val-tuned) | **0.7815** — beats 2022 champion 0.780 |
+| **5-fold patient-stratified CV** | **0.7036 ± 0.0604** (per-fold 0.759 / 0.665 / 0.754 / 0.737 / 0.603) |
+| Out-of-fold ensemble (942 patients) | s_murmur 0.7040 · recall [0.859, 0.544, 0.620] |
+
+Interventions that **did not** help (all tested on the fixed split, seed 43):
+
+- **Larger model**: 2.26M-param encoder → 0.7296 (overfits 659-patient train set)
+- **Focal loss (γ=2)** → 0.6111 (Present recall collapses)
+- **Frozen wav2vec2-base features** (94.4M params) + MLP/attn head → 0.6778
+
+→ The honest reading: single-split 0.7815 sits at the favorable end of a ±0.06 CV spread; the
+model's true generalization is ~0.70. On this small dataset a 404K from-scratch multi-position
+fusion model beats both a 5.6× bigger version of itself and frozen 94M self-supervised features.
+
+Full details: [EXPERIMENTS.md](EXPERIMENTS.md) (v3) · [EXPERIMENTS_v4.md](EXPERIMENTS_v4.md) (v4 iteration log, 20 runs) · [EXPERIMENTS_2026-08-20.md](EXPERIMENTS_2026-08-20.md) (re-validation, CV, ablations).
 
 ## Roadmap
 
 - [x] Reproduce PhysioNet 2022 Challenge baseline
 - [x] Train lightweight murmur classifier (multi-position fusion, s_murmur 0.70)
 - [x] Beat the 2022 Challenge champion (v4: longer training + tuned thresholds → **0.7815 > 0.780**)
-- [ ] Multi-seed ensemble with k-fold-based model selection
+- [x] Multi-seed ensemble with k-fold-based model selection (5-fold CV done: 0.704 ± 0.06)
 - [ ] On-device inference demo (edge deployment)
 - [ ] Chinese primary-care deployment guide
 
