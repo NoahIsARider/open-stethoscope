@@ -14,7 +14,15 @@ Usage: python3 tune_ensemble.py --mode probavg tag1 tag2 ...
 import os, sys, glob
 import numpy as np
 
-WORKDIR = '/root/heart-train'
+
+def _resolve_workdir():
+    base = os.path.dirname(os.path.abspath(__file__))
+    exp = os.path.join(base, 'experiments')
+    if os.path.isdir(exp):
+        return exp
+    return '/root/heart-train'  # server layout fallback
+WORKDIR = os.environ.get('OS_WORKDIR', _resolve_workdir())
+
 CH_W = np.array([1.0, 3.0, 5.0])
 WA_W = np.array([0.1, 0.2, 1.0])
 
@@ -82,11 +90,12 @@ def main():
         mode = args[1]
         args = args[2:]
     tags = args
+    probs_dir = os.path.join(WORKDIR, 'probs') if os.path.isdir(os.path.join(WORKDIR, 'probs')) else WORKDIR
     if not tags:
-        tags = sorted(os.path.basename(p)[11:-4] for p in glob.glob(os.path.join(WORKDIR, 'v4_probs_*.npz')))
+        tags = sorted(os.path.basename(p)[11:-4] for p in glob.glob(os.path.join(probs_dir, 'v4_probs_*.npz')))
     vf, vv, vy, tf, tv, ty = [], [], None, [], [], None
     for t in tags:
-        p = os.path.join(WORKDIR, f'v4_probs_{t}.npz')
+        p = os.path.join(probs_dir, f'v4_probs_{t}.npz')
         d = np.load(p)
         if vy is None:
             vy, ty = d['val_y'], d['test_y']
@@ -109,7 +118,7 @@ def main():
     # per-model tuned (single-model threshold shift)
     print('\n----- per-model tuned thresholds -----')
     for i, t in enumerate(tags):
-        d = np.load(os.path.join(WORKDIR, f'v4_probs_{t}.npz'))
+        d = np.load(os.path.join(probs_dir, f'v4_probs_{t}.npz'))
         val_s, dP, dU = tune(d['val_fused'], d['val_y'], mode)
         if mode == 'probavg':
             adj = d['test_fused'] * np.exp(np.array([0.0, dU, dP]))[None, :]

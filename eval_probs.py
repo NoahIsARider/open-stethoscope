@@ -12,10 +12,18 @@ import os, sys, json, time
 import numpy as np
 import torch
 
-sys.path.insert(0, '/root/heart-train')
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import train_v4 as T
 
-WORKDIR = '/root/heart-train'
+
+def _resolve_workdir():
+    base = os.path.dirname(os.path.abspath(__file__))
+    exp = os.path.join(base, 'experiments')
+    if os.path.isdir(exp):
+        return exp
+    return '/root/heart-train'  # server layout fallback
+WORKDIR = os.environ.get('OS_WORKDIR', _resolve_workdir())
+
 MEL_CACHE_DIR = os.path.join(WORKDIR, 'mel_cache_v3')
 
 
@@ -35,14 +43,17 @@ def main():
     mel_cache = {}
     T.precompute_mels(all_paths, mel_cache)
     for tag in tags:
-        pt_path = os.path.join(WORKDIR, f'best_model_v4_{tag}.pt')
+        pt_path = os.path.join(WORKDIR, 'models', f'best_model_v4_{tag}.pt')
+        if not os.path.exists(pt_path):
+            pt_path = os.path.join(WORKDIR, f'best_model_v4_{tag}.pt')
         ckpt = torch.load(pt_path, map_location='cpu')
         model = T.FusionNet(n_class=3).to(device)
         model.load_state_dict(ckpt['state_dict'])
         model.eval()
         vf, vfp, vv, vvp, vy = T.evaluate_probs(model, val_pids, labels, patient_locs, mel_cache, device)
         tf, tfp, tv, tvp, ty = T.evaluate_probs(model, test_pids, labels, patient_locs, mel_cache, device)
-        out = os.path.join(WORKDIR, f'v4_probs_{tag}.npz')
+        probs_dir = os.path.join(WORKDIR, 'probs')
+        out = os.path.join(probs_dir if os.path.isdir(probs_dir) else WORKDIR, f'v4_probs_{tag}.npz')
         np.savez(out, val_fused=vf, val_vote=vv, val_y=vy,
                  test_fused=tf, test_vote=tv, test_y=ty)
         acc, recall, f1, wa, ch, cm, spec = T.metrics(ty, tfp)

@@ -10,10 +10,18 @@ import numpy as np
 import torch
 import torch.nn as nn
 
-sys.path.insert(0, '/root/open-stethoscope')
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import train_v4 as T
 
-WORKDIR = '/root/heart-train'
+
+def _resolve_workdir():
+    base = os.path.dirname(os.path.abspath(__file__))
+    exp = os.path.join(base, 'experiments')
+    if os.path.isdir(exp):
+        return exp
+    return '/root/heart-train'  # server layout fallback
+WORKDIR = os.environ.get('OS_WORKDIR', _resolve_workdir())
+
 FEAT = np.load(os.path.join(WORKDIR, 'w2v_features.npz'), allow_pickle=True)
 CH_W = np.array([1.0, 3.0, 5.0])
 

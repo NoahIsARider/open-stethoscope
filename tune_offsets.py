@@ -1,17 +1,20 @@
 #!/usr/bin/env python3
 """Tune decision offsets (dP, dU) on OOF predictions to see s_murmur headroom."""
+import os
 import json
 import numpy as np
 
-r = json.load(open('/root/heart-train/kfold_results.json'))
+base = os.path.dirname(os.path.abspath(__file__))
+res_dir = os.path.join(base, 'experiments', 'results') if os.path.isdir(os.path.join(base, 'experiments', 'results')) else base
+r = json.load(open(os.path.join(res_dir, 'kfold_results.json')))
 # rebuild OOF probs from per-fold npz? We didn't save per-fold probs; use kfold_results OOF summary only.
 # Instead: recompute OOF probs by loading fold models? Heavy. For now: simulate from saved npz of seeds.
 # Quick approach: load the 4 seed test npz (s42,s43,s44,s45) + their val probs to tune.
 import glob, os
 
 # Load val+test probs for the seed family
-files = ['/root/heart-train/v4_probs_s42_30ep.npz', '/root/heart-train/v4_probs_s43_30ep.npz',
-         '/root/heart-train/v4_probs_s44_30ep.npz', '/root/heart-train/v4_probs_s45_30ep.npz']
+probs_dir = os.path.join(base, 'experiments', 'probs') if os.path.isdir(os.path.join(base, 'experiments', 'probs')) else base
+files = [os.path.join(probs_dir, f'v4_probs_{t}_30ep.npz') for t in ('s42', 's43', 's44', 's45')]
 CH_W = np.array([1.0, 3.0, 5.0])
 
 def smurmur(y_true, y_pred):

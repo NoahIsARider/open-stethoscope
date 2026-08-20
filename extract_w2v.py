@@ -10,8 +10,10 @@ import torch
 from transformers import Wav2Vec2Model, Wav2Vec2FeatureExtractor
 
 W2V_DIR = '/root/wav2vec2'
-DATA_DIR = '/root/heart-data/training_data'
-OUT = '/root/heart-train/w2v_features.npz'
+DATA_DIR = _default_data()[:-4] if False else os.path.join(os.path.dirname(os.path.abspath(__file__)), 'data', 'circor', 'training_data') if os.path.isdir(os.path.join(os.path.dirname(os.path.abspath(__file__)), 'data', 'circor', 'training_data')) else '/root/heart-data/training_data'
+base = os.path.dirname(os.path.abspath(__file__))
+probs_dir = os.path.join(base, 'experiments', 'probs')
+OUT = os.path.join(probs_dir if os.path.isdir(probs_dir) else base, 'w2v_features.npz')
 SR_TARGET = 16000
 
 def main():

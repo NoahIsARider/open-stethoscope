@@ -68,6 +68,43 @@ fusion model beats both a 5.6× bigger version of itself and frozen 94M self-sup
 
 Full details: [EXPERIMENTS.md](EXPERIMENTS.md) (v3) · [EXPERIMENTS_v4.md](EXPERIMENTS_v4.md) (v4 iteration log, 20 runs) · [EXPERIMENTS_2026-08-20.md](EXPERIMENTS_2026-08-20.md) (re-validation, CV, ablations).
 
+## Reproducibility
+
+Every number in this README is reproducible — **without a GPU**. All trained weights,
+val/test probabilities, training logs and result JSONs are committed under
+[`experiments/`](experiments/):
+
+```
+experiments/
+├── models/    # 16 trained checkpoints (9-seed v4 family, kfold×5, v5, focal) + QC models
+├── probs/     # val/test softmax probabilities per seed (ensemble inputs)
+├── logs/      # full training logs (run_s42..s52_30ep.log, kfold, focal, v5, w2v)
+└── results/   # exp_results*.json, kfold_results.json, score_library.json, v3_split_seed42.json
+```
+
+**Reproduce the best result (test s_murmur 0.7926):**
+
+```bash
+# 1. (optional) Re-evaluate any saved checkpoint on val+test → dumps v4_probs_<tag>.npz
+python3 eval_probs.py s43_30ep s44_30ep s45_30ep s46_30ep
+
+# 2. Val-selected top-k ensemble over the 9-seed family (CPU, ~seconds)
+python3 ensemble_topk.py        # → top4 tuned → test = 0.7926
+
+# 3. Or tune a fixed ensemble yourself
+python3 tune_ensemble.py --mode probavg s42_30ep s43_30ep s44_30ep s45_30ep
+```
+
+**Reproduce a single model (s43, test 0.7815):**
+
+```bash
+python3 tune_ensemble.py --mode probavg s43_30ep
+```
+
+All scripts auto-detect the `experiments/` layout; the original server layout
+(`/root/heart-train`) is supported as a fallback, and `OS_WORKDIR` overrides either.
+
+
 ## Roadmap
 
 - [x] Reproduce PhysioNet 2022 Challenge baseline
@@ -110,15 +147,23 @@ Requirements: Python 3.10+, PyTorch (tested 2.6.0+cu124), librosa, soundfile, pa
 ├── train_v2.py          # v2 training: multi-location masked-attention fusion
 ├── train_v3.py          # v3: 70/15/15 held-out split + ablation switches + official challenge metric
 ├── train_v4.py          # v4: longer training + decision-threshold tuning (beats champion 0.780)
+├── train_v5.py          # 2.26M-param encoder (ablation — overfits)
+├── train_focal.py       # focal-loss ablation
+├── train_kfold.py       # 5-fold patient-stratified CV (honest generalization)
+├── train_w2v_head.py    # frozen wav2vec2 features + head (ablation)
+├── extract_w2v.py       # wav2vec2 feature extraction (ablation)
 ├── eval_probs.py        # save val/test probabilities per model (for ensembling)
 ├── ensemble_v4.py       # probability-average ensemble
+├── ensemble_topk.py     # val-selected top-k ensemble → best 0.7926
 ├── tune_ensemble.py     # val-tuned decision thresholds (dP/dU) for s_murmur
 ├── tune_ensemble_w.py   # val-weighted ensemble variant
+├── tune_offsets.py      # OOF decision-offset headroom analysis
 ├── EXPERIMENTS.md       # v3 full experimental report (test eval, benchmark, ablations)
 ├── EXPERIMENTS_v4.md    # v4 iteration log (20 runs, 0.70 → 0.7815)
 ├── exp_results.json     # v3 aggregated metrics
 ├── exp_results_v4.json  # v4 aggregated metrics
 ├── v3_split_seed42.json # persisted patient-level split (reproducibility)
+├── experiments/         # committed artifacts: models/, probs/, logs/, results/ (see Reproducibility)
 ├── data/                # dataset (gitignored)
 ├── models/              # checkpoints (gitignored)
 ├── app/                 # QC companion backend (FastAPI): qc_engine.py, main.py, model_defs.py

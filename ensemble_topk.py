@@ -1,11 +1,13 @@
 #!/usr/bin/env python3
 """Ensemble analysis: rank seeds by val s_murmur, build top-k probavg ensembles, report test.
 Usage: python3 ensemble_topk.py  (requires v4_probs_<tag>.npz for all trained seeds)"""
+import os
 import glob, os
 import numpy as np
 
 CH_W = np.array([1.0, 3.0, 5.0])
-NPZ = '/root/heart-train/v4_probs_*.npz'
+probs_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'experiments', 'probs')
+NPZ = os.path.join(probs_dir if os.path.isdir(probs_dir) else os.path.dirname(os.path.abspath(__file__)), 'v4_probs_*.npz')
 
 
 def smurmur(y_true, y_pred):

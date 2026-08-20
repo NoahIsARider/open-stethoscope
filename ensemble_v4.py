@@ -9,7 +9,15 @@ Prints per-model test metrics + averaged ensemble metrics (fused and vote)
 import os, sys, glob
 import numpy as np
 
-WORKDIR = '/root/heart-train'
+
+def _resolve_workdir():
+    base = os.path.dirname(os.path.abspath(__file__))
+    exp = os.path.join(base, 'experiments')
+    if os.path.isdir(exp):
+        return exp
+    return '/root/heart-train'  # server layout fallback
+WORKDIR = os.environ.get('OS_WORKDIR', _resolve_workdir())
+
 CH_W = np.array([1.0, 3.0, 5.0])
 WA_W = np.array([0.1, 0.2, 1.0])
 CLASS_NAMES = ['Absent', 'Unknown', 'Present']

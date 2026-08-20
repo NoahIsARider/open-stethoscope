@@ -36,9 +36,27 @@ N_FFT = 512
 HOP = 256
 FMIN, FMAX = 25, 2000
 
-DATA_CSV = '/root/heart-data/training_data.csv'
-DATA_DIR = '/root/heart-data/training_data'
-WORKDIR = '/root/heart-train'
+
+def _default_data():
+    base = os.path.dirname(os.path.abspath(__file__))
+    for cand in (os.path.join(base, 'data', 'circor', 'training_data.csv'),
+                 os.path.join(base, 'data', 'training_data.csv'),
+                 '/root/heart-data/training_data.csv'):
+        if os.path.exists(cand):
+            return cand
+    return '/root/heart-data/training_data.csv'
+DATA_CSV = _default_data()
+DATA_DIR = DATA_CSV[:-4]
+
+
+def _resolve_workdir():
+    base = os.path.dirname(os.path.abspath(__file__))
+    exp = os.path.join(base, 'experiments')
+    if os.path.isdir(exp):
+        return exp
+    return '/root/heart-train'  # server layout fallback
+WORKDIR = os.environ.get('OS_WORKDIR', _resolve_workdir())
+
 MEL_CACHE_DIR = os.path.join(WORKDIR, 'mel_cache_v3')
 SPLIT_JSON = os.path.join(WORKDIR, 'v3_split_seed42.json')
 RESULT_JSON = os.path.join(WORKDIR, 'exp_results_v4.json')

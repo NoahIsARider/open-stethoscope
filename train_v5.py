@@ -7,10 +7,18 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-sys.path.insert(0, '/root/open-stethoscope')
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import train_v4 as T
 
-WORKDIR = '/root/heart-train'
+
+def _resolve_workdir():
+    base = os.path.dirname(os.path.abspath(__file__))
+    exp = os.path.join(base, 'experiments')
+    if os.path.isdir(exp):
+        return exp
+    return '/root/heart-train'  # server layout fallback
+WORKDIR = os.environ.get('OS_WORKDIR', _resolve_workdir())
+
 
 
 class FusionNetV5(nn.Module):
