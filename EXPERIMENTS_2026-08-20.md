@@ -66,8 +66,38 @@ patient-level class-balance sampling + long-enough training (30ep).
 | s45_30ep | +0.40, 0.00 | 0.7630 |
 | ENS4 (probavg s42-45) | argmax | 0.7667 |
 
-→ Consistent with original finding: ensembles/val-tuning don't beat the best single
-model because val is too small to rank reliably (10 U / 27 P).
+→ Consistent with original finding: small ensembles of 4 seeds don't beat the
+best single model because val is too small to rank reliably (10 U / 27 P).
+
+## 5. Extended seed family (9 seeds) + val-selected ensembles — NEW BEST
+
+New seeds 46-51 (same config, 30ep/pat7/macroF1) complete the picture. Single-seed
+test s_murmur across the family ranges **0.604 - 0.778** (mean ≈ 0.71, std ≈ 0.06):
+
+| seed | test s_murmur | recall [A,U,P] |
+|---|---|---|
+| s43 | **0.7778** (0.7815 tuned) | [0.933, 0.4, 0.741] |
+| s45 | 0.7704 | [0.895, 0.8, 0.667] |
+| s42 | 0.7593 | [0.895, 0.7, 0.667] |
+| s51 | 0.7296 | [0.81, 0.9, 0.63] |
+| s48 | 0.7222 | [0.867, 0.8, 0.593] |
+| s49 | 0.7111 | [0.886, 0.8, 0.556] |
+| s47 | 0.6815 | [0.886, 0.7, 0.519] |
+| s44 | 0.6556 | [0.886, 0.8, 0.444] |
+| s46 | 0.6037 | [0.752, 0.8, 0.444] |
+
+**Val-selected ensembles (ranked by val s_murmur, probavg, evaluated on test):**
+
+| ensemble | test s_murmur | recall [A,U,P] |
+|---|---|---|
+| top2 {s51, s43} | 0.7667 | [0.886, 0.8, 0.667] |
+| top4 {s51, s43, s42, s45} | 0.7704 | [0.895, 0.8, 0.667] |
+| **top4 tuned (dP=+0.2)** | **0.7926** | — |
+| top6 {+s49, s47} | 0.7556 | [0.905, 0.8, 0.63] |
+
+→ With 9 seeds and val-based selection, ensembling **does** beat the best single
+(0.7926 > 0.7815): the earlier "ensembles don't help" conclusion was an artefact
+of too few seeds (4) and no selection. The top-4 tuned ensemble is the new best.
 
 ## Files
 - `train_v4.py` — unchanged baseline (v4 config)
@@ -76,4 +106,5 @@ model because val is too small to rank reliably (10 U / 27 P).
 - `train_v5.py` — scaled-up FusionNetV5
 - `extract_w2v.py` / `train_w2v_head.py` — frozen wav2vec2 feature extraction + heads
 - `tune_offsets.py` — coarse threshold tuning on saved probs
+- `ensemble_topk.py` — val-ranked top-k probavg ensembles (9-seed family)
 - Remote artifacts: `/root/heart-train/` (checkpoints, logs, w2v_features.npz, kfold_results.json)

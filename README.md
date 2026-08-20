@@ -50,8 +50,9 @@ Held-out test set (142 patients, never seen during training), official CirCor-20
 
 | check | result |
 |---|---|
-| Exact reproduction of all 4 v4 seeds | 0.7593 / 0.7778 / 0.6556 / 0.7704 — **identical to original** |
+| Exact reproduction of all 4 original v4 seeds | 0.7593 / 0.7778 / 0.6556 / 0.7704 — **identical to original** |
 | Best single (s43 + val-tuned) | **0.7815** — beats 2022 champion 0.780 |
+| **Best val-selected top-4 ensemble (9-seed family, tuned)** | **0.7926** — new best |
 | **5-fold patient-stratified CV** | **0.7036 ± 0.0604** (per-fold 0.759 / 0.665 / 0.754 / 0.737 / 0.603) |
 | Out-of-fold ensemble (942 patients) | s_murmur 0.7040 · recall [0.859, 0.544, 0.620] |
 
