@@ -1,0 +1,90 @@
+[env] device=cuda torch=2.6.0+cu124 seed=51 boost=1.0 mode=both sampling=sqrt es=macro_f1
+[env] gpu=Tesla P4
+[data] patients=942 wavs=3158 labels={'Absent': 695, 'Unknown': 68, 'Present': 179}
+[split] loaded existing /root/heart-train/v3_split_seed42.json
+[split] train=659 dist=[486, 48, 125]
+[split] val  =141 dist=[104, 10, 27]
+[split] test =142 dist=[105, 10, 27]
+[feat] 400/3158 (0s)
+[feat] 800/3158 (0s)
+[feat] 1200/3158 (0s)
+[feat] 1600/3158 (0s)
+[feat] 2000/3158 (0s)
+[feat] 2400/3158 (1s)
+[feat] 2800/3158 (1s)
+[feat] cache ready: 3158 mels (0 computed, 1s)
+[imb] train counts=[486, 48, 125] sampling=sqrt boost=1.0 mode=both ce_weights=[0.488, 1.551, 0.961] samp_weights=[0.488, 1.551, 0.961]
+
+======== TRAIN FUSION MODEL tag=s51_30ep ========
+[model] params=404,358
+[fusion ep 01] loss=1.1547 train_acc=0.4932 val_acc=0.7376 macroF1=0.5048 chWA=0.4758 recall=[0.904, 0.8, 0.074] (13.1s)
+[fusion ep 02] loss=1.0346 train_acc=0.5797 val_acc=0.4681 macroF1=0.4180 chWA=0.5279 recall=[0.433, 0.4, 0.63] (11.0s)
+[fusion ep 03] loss=1.0182 train_acc=0.6131 val_acc=0.2553 macroF1=0.3040 chWA=0.5502 recall=[0.038, 0.8, 0.889] (11.0s)
+[fusion ep 04] loss=0.9559 train_acc=0.6373 val_acc=0.4468 macroF1=0.4565 chWA=0.5836 recall=[0.337, 0.9, 0.704] (11.1s)
+[fusion ep 05] loss=0.9343 train_acc=0.6419 val_acc=0.6738 macroF1=0.5601 chWA=0.6283 recall=[0.712, 0.5, 0.593] (11.1s)
+[fusion ep 06] loss=0.9936 train_acc=0.6039 val_acc=0.2553 macroF1=0.2633 chWA=0.5353 recall=[0.067, 0.4, 0.926] (11.1s)
+[fusion ep 07] loss=0.8855 train_acc=0.6829 val_acc=0.8085 macroF1=0.6504 chWA=0.6691 recall=[0.913, 0.5, 0.519] (11.0s)
+[fusion ep 08] loss=0.8998 train_acc=0.6540 val_acc=0.8085 macroF1=0.6587 chWA=0.6468 recall=[0.923, 0.6, 0.444] (11.1s)
+[fusion ep 09] loss=0.8479 train_acc=0.6677 val_acc=0.2766 macroF1=0.3262 chWA=0.5539 recall=[0.067, 0.9, 0.852] (11.1s)
+[fusion ep 10] loss=0.8396 train_acc=0.7041 val_acc=0.7872 macroF1=0.5657 chWA=0.6357 recall=[0.913, 0.2, 0.519] (11.1s)
+[fusion ep 11] loss=0.8298 train_acc=0.7162 val_acc=0.7801 macroF1=0.6640 chWA=0.6766 recall=[0.837, 1.0, 0.481] (11.0s)
+[fusion ep 12] loss=0.8537 train_acc=0.6555 val_acc=0.7234 macroF1=0.6071 chWA=0.6617 recall=[0.769, 0.6, 0.593] (10.7s)
+[fusion ep 13] loss=0.8113 train_acc=0.6965 val_acc=0.4752 macroF1=0.4625 chWA=0.6208 recall=[0.356, 1.0, 0.741] (11.1s)
+[fusion ep 14] loss=0.7344 train_acc=0.7360 val_acc=0.5035 macroF1=0.4470 chWA=0.6431 recall=[0.423, 0.3, 0.889] (10.9s)
+[fusion ep 15] loss=0.7756 train_acc=0.7360 val_acc=0.3830 macroF1=0.3639 chWA=0.5948 recall=[0.25, 0.3, 0.926] (10.9s)
+[fusion ep 16] loss=0.7144 train_acc=0.7360 val_acc=0.8227 macroF1=0.6701 chWA=0.6543 recall=[0.942, 0.6, 0.444] (10.4s)
+[fusion ep 17] loss=0.6865 train_acc=0.7633 val_acc=0.7376 macroF1=0.6261 chWA=0.7435 recall=[0.75, 0.4, 0.815] (8.8s)
+[fusion ep 18] loss=0.7253 train_acc=0.7405 val_acc=0.8156 macroF1=0.7190 chWA=0.7546 recall=[0.846, 1.0, 0.63] (5.5s)
+[fusion ep 19] loss=0.6780 train_acc=0.7587 val_acc=0.6383 macroF1=0.5687 chWA=0.6989 recall=[0.606, 0.5, 0.815] (4.7s)
+[fusion ep 20] loss=0.6851 train_acc=0.7466 val_acc=0.7376 macroF1=0.6381 chWA=0.6840 recall=[0.76, 1.0, 0.556] (4.6s)
+[fusion ep 21] loss=0.6031 train_acc=0.7860 val_acc=0.6312 macroF1=0.5668 chWA=0.7175 recall=[0.577, 0.6, 0.852] (4.5s)
+[fusion ep 22] loss=0.6469 train_acc=0.7648 val_acc=0.7943 macroF1=0.6637 chWA=0.6617 recall=[0.885, 0.7, 0.481] (4.6s)
+[fusion ep 23] loss=0.6407 train_acc=0.7618 val_acc=0.7021 macroF1=0.6024 chWA=0.7175 recall=[0.702, 0.5, 0.778] (4.5s)
+[fusion ep 24] loss=0.6192 train_acc=0.7800 val_acc=0.7730 macroF1=0.6714 chWA=0.7249 recall=[0.808, 0.7, 0.667] (3.2s)
+[fusion ep 25] loss=0.6353 train_acc=0.7769 val_acc=0.8227 macroF1=0.7137 chWA=0.7286 recall=[0.885, 0.8, 0.593] (3.1s)
+[fusion] early stop at epoch 25
+[fusion] best epoch=18 val_macro_f1=0.7190 | 8.8s/epoch | total 221s
+
+===== FUSION MODEL: VAL =====
+--- FUSION val (attention-fused) ---
+  accuracy      : 0.8156
+  macro-F1      : 0.7190  (per-class [0.889, 0.588, 0.68])
+  legacy wacc   : 0.7033 (w 0.1/0.2/1.0)
+  CHALLENGE WA  : 0.7546 (official s_murmur, w Absent1/Unknown3/Present5)
+  per-class recall/sens: [0.846, 1.0, 0.63]
+  per-class spec       : [0.838, 0.893, 0.947]
+  confusion (rows=true [Absent,Unknown,Present], cols=pred):
+  [[88, 10, 6], [0, 10, 0], [6, 4, 17]]
+--- FUSION-vote val (per-loc majority) ---
+  accuracy      : 0.7021
+  macro-F1      : 0.6256  (per-class [0.802, 0.364, 0.711])
+  legacy wacc   : 0.6637 (w 0.1/0.2/1.0)
+  CHALLENGE WA  : 0.6803 (official s_murmur, w Absent1/Unknown3/Present5)
+  per-class recall/sens: [0.702, 1.0, 0.593]
+  per-class spec       : [0.865, 0.733, 0.982]
+  confusion (rows=true [Absent,Unknown,Present], cols=pred):
+  [[73, 29, 2], [0, 10, 0], [5, 6, 16]]
+
+===== FUSION MODEL: HELD-OUT TEST =====
+--- FUSION test (attention-fused) ---
+  accuracy      : 0.7817
+  macro-F1      : 0.6788  (per-class [0.863, 0.45, 0.723])
+  legacy wacc   : 0.6851 (w 0.1/0.2/1.0)
+  CHALLENGE WA  : 0.7296 (official s_murmur, w Absent1/Unknown3/Present5)
+  per-class recall/sens: [0.81, 0.9, 0.63]
+  per-class spec       : [0.811, 0.841, 0.974]
+  confusion (rows=true [Absent,Unknown,Present], cols=pred):
+  [[85, 17, 3], [1, 9, 0], [6, 4, 17]]
+--- FUSION-vote test (per-loc majority) ---
+  accuracy      : 0.6479
+  macro-F1      : 0.5710  (per-class [0.767, 0.295, 0.651])
+  legacy wacc   : 0.5879 (w 0.1/0.2/1.0)
+  CHALLENGE WA  : 0.6148 (official s_murmur, w Absent1/Unknown3/Present5)
+  per-class recall/sens: [0.657, 0.9, 0.519]
+  per-class spec       : [0.838, 0.682, 0.983]
+  confusion (rows=true [Absent,Unknown,Present], cols=pred):
+  [[69, 34, 2], [1, 9, 0], [5, 8, 14]]
+[save] /root/heart-train/best_model_v4_s51_30ep.pt
+[save] /root/heart-train/v4_test_s51_30ep.npz
+[result] saved to /root/heart-train/exp_results_v4.json
+================ DONE ================

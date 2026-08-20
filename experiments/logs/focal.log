@@ -1,0 +1,32 @@
+[data] patients=942 wavs=3158 labels={'Absent': 695, 'Unknown': 68, 'Present': 179}
+[split] loaded existing /root/heart-train/v3_split_seed42.json
+[split] train=659 [486, 48, 125] val=141 [104, 10, 27] test=142 [105, 10, 27]
+[feat] 400/3158 (0s)
+[feat] 800/3158 (0s)
+[feat] 1200/3158 (0s)
+[feat] 1600/3158 (0s)
+[feat] 2000/3158 (0s)
+[feat] 2400/3158 (0s)
+[feat] 2800/3158 (1s)
+[feat] cache ready: 3158 mels (0 computed, 1s)
+[imb] alpha=[0.488, 1.551, 0.961] gamma=2.0
+[ep01] loss=0.5247 train_acc=0.4917 val_acc=0.2340 macroF1=0.2596 chWA=0.5093 recall=[0.019, 1.0, 0.778]
+[ep02] loss=0.4863 train_acc=0.5660 val_acc=0.6312 macroF1=0.5185 chWA=0.5465 recall=[0.673, 0.9, 0.37]
+[ep03] loss=0.4646 train_acc=0.5812 val_acc=0.2553 macroF1=0.3074 chWA=0.4758 recall=[0.096, 0.6, 0.741]
+[ep04] loss=0.4488 train_acc=0.5918 val_acc=0.3050 macroF1=0.3154 chWA=0.5093 recall=[0.144, 0.9, 0.704]
+[ep05] loss=0.4079 train_acc=0.6540 val_acc=0.7872 macroF1=0.6419 chWA=0.6506 recall=[0.885, 0.6, 0.481]
+[ep06] loss=0.4312 train_acc=0.6464 val_acc=0.3759 macroF1=0.3010 chWA=0.5019 recall=[0.308, 0.1, 0.741]
+[ep07] loss=0.4475 train_acc=0.6525 val_acc=0.7943 macroF1=0.6686 chWA=0.6617 recall=[0.875, 0.9, 0.444]
+[ep08] loss=0.3740 train_acc=0.7011 val_acc=0.7730 macroF1=0.5835 chWA=0.5911 recall=[0.904, 0.5, 0.37]
+[ep09] loss=0.4262 train_acc=0.6009 val_acc=0.7943 macroF1=0.6180 chWA=0.5799 recall=[0.942, 0.6, 0.296]
+[ep10] loss=0.3632 train_acc=0.7117 val_acc=0.4610 macroF1=0.4270 chWA=0.5242 recall=[0.394, 1.0, 0.519]
+[ep11] loss=0.3657 train_acc=0.7011 val_acc=0.8227 macroF1=0.5868 chWA=0.6097 recall=[0.99, 0.2, 0.407]
+[ep12] loss=0.3506 train_acc=0.6965 val_acc=0.5532 macroF1=0.5111 chWA=0.6543 recall=[0.49, 0.5, 0.815]
+[ep13] loss=0.3430 train_acc=0.7147 val_acc=0.7943 macroF1=0.6631 chWA=0.6766 recall=[0.875, 0.7, 0.519]
+[ep14] loss=0.3412 train_acc=0.7178 val_acc=0.6596 macroF1=0.5640 chWA=0.5836 recall=[0.692, 1.0, 0.407]
+[best] ep=7 val_macroF1=0.6686 total=48s
+[TEST] acc=0.7113 macroF1=0.5844 s_murmur=0.6111 recall=[0.771, 0.8, 0.444]
+[[81 22  2]
+ [ 1  8  1]
+ [11  4 12]]
+DONE

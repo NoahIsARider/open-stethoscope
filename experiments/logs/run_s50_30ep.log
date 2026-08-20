@@ -1,0 +1,32 @@
+[env] device=cuda torch=2.6.0+cu124 seed=50 boost=1.0 mode=both sampling=sqrt es=macro_f1
+[env] gpu=Tesla P4
+[data] patients=942 wavs=3158 labels={'Absent': 695, 'Unknown': 68, 'Present': 179}
+[split] loaded existing /root/heart-train/v3_split_seed42.json
+[split] train=659 dist=[486, 48, 125]
+[split] val  =141 dist=[104, 10, 27]
+[split] test =142 dist=[105, 10, 27]
+[feat] 400/3158 (0s)
+[feat] 800/3158 (0s)
+[feat] 1200/3158 (0s)
+[feat] 1600/3158 (0s)
+[feat] 2000/3158 (1s)
+[feat] 2400/3158 (1s)
+[feat] 2800/3158 (1s)
+[feat] cache ready: 3158 mels (0 computed, 1s)
+[imb] train counts=[486, 48, 125] sampling=sqrt boost=1.0 mode=both ce_weights=[0.488, 1.551, 0.961] samp_weights=[0.488, 1.551, 0.961]
+
+======== TRAIN FUSION MODEL tag=s50_30ep ========
+[model] params=404,358
+Traceback (most recent call last):
+  File "/root/open-stethoscope/train_v4.py", line 471, in <module>
+    main()
+  File "/root/open-stethoscope/train_v4.py", line 405, in main
+    loss.backward()
+  File "/root/venv_heart/lib/python3.12/site-packages/torch/_tensor.py", line 626, in backward
+    torch.autograd.backward(
+  File "/root/venv_heart/lib/python3.12/site-packages/torch/autograd/__init__.py", line 347, in backward
+    _engine_run_backward(
+  File "/root/venv_heart/lib/python3.12/site-packages/torch/autograd/graph.py", line 823, in _engine_run_backward
+    return Variable._execution_engine.run_backward(  # Calls into the C++ engine to run the backward pass
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+torch.OutOfMemoryError: CUDA out of memory. Tried to allocate 158.00 MiB. GPU 0 has a total capacity of 7.92 GiB of which 97.19 MiB is free. Process 58536 has 1.09 GiB memory in use. Process 58538 has 804.00 MiB memory in use. Process 58539 has 1.49 GiB memory in use. Process 58540 has 1.09 GiB memory in use. Process 58537 has 1.09 GiB memory in use. Process 58534 has 1.22 GiB memory in use. Process 58535 has 1.06 GiB memory in use. Of the allocated memory 456.22 MiB is allocated by PyTorch, and 209.78 MiB is reserved by PyTorch but unallocated. If reserved but unallocated memory is large try setting PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True to avoid fragmentation.  See documentation for Memory Management  (https://pytorch.org/docs/stable/notes/cuda.html#environment-variables)

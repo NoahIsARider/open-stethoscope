@@ -1,0 +1,94 @@
+[env] device=cuda torch=2.6.0+cu124 seed=42 boost=1.0 mode=both sampling=sqrt es=macro_f1
+[env] gpu=Tesla P4
+[data] patients=942 wavs=3158 labels={'Absent': 695, 'Unknown': 68, 'Present': 179}
+[split] loaded existing /root/heart-train/v3_split_seed42.json
+[split] train=659 dist=[486, 48, 125]
+[split] val  =141 dist=[104, 10, 27]
+[split] test =142 dist=[105, 10, 27]
+[feat] 400/3158 (0s)
+[feat] 800/3158 (0s)
+[feat] 1200/3158 (0s)
+[feat] 1600/3158 (0s)
+[feat] 2000/3158 (0s)
+[feat] 2400/3158 (0s)
+[feat] 2800/3158 (1s)
+[feat] cache ready: 3158 mels (0 computed, 1s)
+[imb] train counts=[486, 48, 125] sampling=sqrt boost=1.0 mode=both ce_weights=[0.488, 1.551, 0.961] samp_weights=[0.488, 1.551, 0.961]
+
+======== TRAIN FUSION MODEL tag=s42_30ep ========
+[model] params=404,358
+[fusion ep 01] loss=1.1485 train_acc=0.5751 val_acc=0.7943 macroF1=0.6169 chWA=0.5725 recall=[0.942, 0.7, 0.259] (7.4s)
+[fusion ep 02] loss=1.1080 train_acc=0.5721 val_acc=0.2340 macroF1=0.2833 chWA=0.5465 recall=[0.0, 0.9, 0.889] (6.8s)
+[fusion ep 03] loss=1.0480 train_acc=0.6191 val_acc=0.7589 macroF1=0.6145 chWA=0.6357 recall=[0.837, 0.8, 0.444] (6.4s)
+[fusion ep 04] loss=1.0165 train_acc=0.6358 val_acc=0.2128 macroF1=0.2495 chWA=0.5130 recall=[0.0, 0.6, 0.889] (6.8s)
+[fusion ep 05] loss=0.9442 train_acc=0.6525 val_acc=0.7092 macroF1=0.5987 chWA=0.6543 recall=[0.75, 0.6, 0.593] (6.7s)
+[fusion ep 06] loss=0.8907 train_acc=0.6631 val_acc=0.8014 macroF1=0.6452 chWA=0.6283 recall=[0.923, 0.6, 0.407] (6.5s)
+[fusion ep 07] loss=0.9360 train_acc=0.6722 val_acc=0.8085 macroF1=0.6539 chWA=0.6468 recall=[0.923, 0.6, 0.444] (6.5s)
+[fusion ep 08] loss=0.9662 train_acc=0.6480 val_acc=0.7376 macroF1=0.6196 chWA=0.6617 recall=[0.788, 0.7, 0.556] (6.7s)
+[fusion ep 09] loss=0.8687 train_acc=0.6707 val_acc=0.8085 macroF1=0.6587 chWA=0.6468 recall=[0.923, 0.6, 0.444] (6.6s)
+[fusion ep 10] loss=0.8316 train_acc=0.6950 val_acc=0.6099 macroF1=0.5455 chWA=0.6394 recall=[0.587, 0.7, 0.667] (6.4s)
+[fusion ep 11] loss=0.8597 train_acc=0.7011 val_acc=0.4326 macroF1=0.4108 chWA=0.5985 recall=[0.327, 0.4, 0.852] (6.3s)
+[fusion ep 12] loss=0.8812 train_acc=0.6965 val_acc=0.8227 macroF1=0.5421 chWA=0.6022 recall=[1.0, 0.1, 0.407] (6.9s)
+[fusion ep 13] loss=0.8222 train_acc=0.7086 val_acc=0.7872 macroF1=0.6401 chWA=0.6506 recall=[0.885, 0.6, 0.481] (6.5s)
+[fusion ep 14] loss=0.8409 train_acc=0.7071 val_acc=0.7730 macroF1=0.6411 chWA=0.6877 recall=[0.837, 0.6, 0.593] (6.5s)
+[fusion ep 15] loss=0.7870 train_acc=0.6904 val_acc=0.8156 macroF1=0.6710 chWA=0.6729 recall=[0.913, 0.7, 0.481] (6.6s)
+[fusion ep 16] loss=0.7624 train_acc=0.7269 val_acc=0.7872 macroF1=0.6484 chWA=0.7026 recall=[0.856, 0.5, 0.63] (6.4s)
+[fusion ep 17] loss=0.7006 train_acc=0.7405 val_acc=0.4965 macroF1=0.4930 chWA=0.6245 recall=[0.404, 0.7, 0.778] (6.5s)
+[fusion ep 18] loss=0.7676 train_acc=0.7269 val_acc=0.7872 macroF1=0.6426 chWA=0.6803 recall=[0.865, 0.6, 0.556] (6.5s)
+[fusion ep 19] loss=0.6958 train_acc=0.7375 val_acc=0.7943 macroF1=0.6418 chWA=0.6543 recall=[0.894, 0.6, 0.481] (6.7s)
+[fusion ep 20] loss=0.7333 train_acc=0.7405 val_acc=0.6596 macroF1=0.5917 chWA=0.6729 recall=[0.644, 0.8, 0.667] (6.7s)
+[fusion ep 21] loss=0.6709 train_acc=0.7329 val_acc=0.7872 macroF1=0.6709 chWA=0.6952 recall=[0.846, 0.8, 0.556] (5.2s)
+[fusion ep 22] loss=0.6534 train_acc=0.7769 val_acc=0.8014 macroF1=0.6795 chWA=0.6952 recall=[0.875, 0.7, 0.556] (4.9s)
+[fusion ep 23] loss=0.6743 train_acc=0.7496 val_acc=0.8014 macroF1=0.6802 chWA=0.6803 recall=[0.885, 0.7, 0.519] (4.9s)
+[fusion ep 24] loss=0.6487 train_acc=0.7739 val_acc=0.8085 macroF1=0.6805 chWA=0.6989 recall=[0.885, 0.7, 0.556] (5.3s)
+[fusion ep 25] loss=0.5892 train_acc=0.8058 val_acc=0.7305 macroF1=0.6310 chWA=0.6952 recall=[0.75, 0.8, 0.63] (5.2s)
+[fusion ep 26] loss=0.6685 train_acc=0.7618 val_acc=0.7730 macroF1=0.6485 chWA=0.6803 recall=[0.837, 0.7, 0.556] (5.1s)
+[fusion ep 27] loss=0.6240 train_acc=0.7876 val_acc=0.7801 macroF1=0.6526 chWA=0.6840 recall=[0.846, 0.7, 0.556] (5.3s)
+[fusion ep 28] loss=0.6504 train_acc=0.7466 val_acc=0.7872 macroF1=0.6587 chWA=0.6877 recall=[0.856, 0.7, 0.556] (5.1s)
+[fusion ep 29] loss=0.6489 train_acc=0.7693 val_acc=0.7730 macroF1=0.6541 chWA=0.7100 recall=[0.817, 0.7, 0.63] (5.2s)
+[fusion ep 30] loss=0.6120 train_acc=0.7906 val_acc=0.7730 macroF1=0.6541 chWA=0.7100 recall=[0.817, 0.7, 0.63] (5.0s)
+[fusion] best epoch=24 val_macro_f1=0.6805 | 6.1s/epoch | total 184s
+
+===== FUSION MODEL: VAL =====
+--- FUSION val (attention-fused) ---
+  accuracy      : 0.8085
+  macro-F1      : 0.6805  (per-class [0.885, 0.519, 0.638])
+  legacy wacc   : 0.6031 (w 0.1/0.2/1.0)
+  CHALLENGE WA  : 0.6989 (official s_murmur, w Absent1/Unknown3/Present5)
+  per-class recall/sens: [0.885, 0.7, 0.556]
+  per-class spec       : [0.676, 0.924, 0.956]
+  confusion (rows=true [Absent,Unknown,Present], cols=pred):
+  [[92, 7, 5], [3, 7, 0], [9, 3, 15]]
+--- FUSION-vote val (per-loc majority) ---
+  accuracy      : 0.7021
+  macro-F1      : 0.5919  (per-class [0.808, 0.333, 0.634])
+  legacy wacc   : 0.5511 (w 0.1/0.2/1.0)
+  CHALLENGE WA  : 0.6208 (official s_murmur, w Absent1/Unknown3/Present5)
+  per-class recall/sens: [0.75, 0.8, 0.481]
+  per-class spec       : [0.703, 0.771, 0.991]
+  confusion (rows=true [Absent,Unknown,Present], cols=pred):
+  [[78, 25, 1], [2, 8, 0], [9, 5, 13]]
+
+===== FUSION MODEL: HELD-OUT TEST =====
+--- FUSION test (attention-fused) ---
+  accuracy      : 0.8380
+  macro-F1      : 0.7177  (per-class [0.904, 0.467, 0.783])
+  legacy wacc   : 0.6894 (w 0.1/0.2/1.0)
+  CHALLENGE WA  : 0.7593 (official s_murmur, w Absent1/Unknown3/Present5)
+  per-class recall/sens: [0.895, 0.7, 0.667]
+  per-class spec       : [0.757, 0.902, 0.991]
+  confusion (rows=true [Absent,Unknown,Present], cols=pred):
+  [[94, 10, 1], [3, 7, 0], [6, 3, 18]]
+--- FUSION-vote test (per-loc majority) ---
+  accuracy      : 0.6972
+  macro-F1      : 0.6057  (per-class [0.813, 0.321, 0.683])
+  legacy wacc   : 0.5930 (w 0.1/0.2/1.0)
+  CHALLENGE WA  : 0.6407 (official s_murmur, w Absent1/Unknown3/Present5)
+  per-class recall/sens: [0.724, 0.9, 0.519]
+  per-class spec       : [0.838, 0.72, 1.0]
+  confusion (rows=true [Absent,Unknown,Present], cols=pred):
+  [[76, 29, 0], [1, 9, 0], [5, 8, 14]]
+[save] /root/heart-train/best_model_v4_s42_30ep.pt
+[save] /root/heart-train/v4_test_s42_30ep.npz
+[result] saved to /root/heart-train/exp_results_v4.json
+================ DONE ================

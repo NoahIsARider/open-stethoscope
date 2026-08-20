@@ -1,0 +1,46 @@
+[data] patients=942 wavs=3158 labels={'Absent': 695, 'Unknown': 68, 'Present': 179}
+[split] loaded existing /root/heart-train/v3_split_seed42.json
+[split] train=659 [486, 48, 125] val=141 [104, 10, 27] test=142 [105, 10, 27]
+[feat] 400/3158 (0s)
+[feat] 800/3158 (0s)
+[feat] 1200/3158 (0s)
+[feat] 1600/3158 (0s)
+[feat] 2000/3158 (0s)
+[feat] 2400/3158 (0s)
+[feat] 2800/3158 (1s)
+[feat] cache ready: 3158 mels (0 computed, 1s)
+[model] params=2.26M
+[ep01] loss=1.1564 train_acc=0.4795 val_acc=0.2128 macroF1=0.2229 chWA=0.4907 recall=[0.0, 0.9, 0.778] (5s)
+[ep02] loss=0.9949 train_acc=0.6373 val_acc=0.6809 macroF1=0.5575 chWA=0.5651 recall=[0.74, 1.0, 0.333] (10s)
+[ep03] loss=0.8718 train_acc=0.6692 val_acc=0.8085 macroF1=0.6157 chWA=0.6691 recall=[0.923, 0.3, 0.556] (15s)
+[ep04] loss=0.8187 train_acc=0.7026 val_acc=0.7943 macroF1=0.6538 chWA=0.6840 recall=[0.875, 0.6, 0.556] (19s)
+[ep05] loss=0.7794 train_acc=0.7178 val_acc=0.7021 macroF1=0.6145 chWA=0.7398 recall=[0.683, 0.6, 0.815] (24s)
+[ep06] loss=0.8067 train_acc=0.7147 val_acc=0.3475 macroF1=0.2421 chWA=0.5539 recall=[0.231, 0.0, 0.926] (29s)
+[ep07] loss=0.8020 train_acc=0.7223 val_acc=0.8156 macroF1=0.6896 chWA=0.6729 recall=[0.904, 0.9, 0.444] (33s)
+[ep08] loss=0.6450 train_acc=0.7891 val_acc=0.8227 macroF1=0.6291 chWA=0.6617 recall=[0.952, 0.3, 0.519] (38s)
+[ep09] loss=0.7056 train_acc=0.7587 val_acc=0.8156 macroF1=0.6793 chWA=0.6729 recall=[0.913, 0.7, 0.481] (43s)
+[ep10] loss=0.6020 train_acc=0.8134 val_acc=0.7801 macroF1=0.6431 chWA=0.6468 recall=[0.865, 0.8, 0.444] (48s)
+[ep11] loss=0.6333 train_acc=0.7936 val_acc=0.5248 macroF1=0.5095 chWA=0.6691 recall=[0.433, 0.5, 0.889] (52s)
+[ep12] loss=0.6054 train_acc=0.7785 val_acc=0.8511 macroF1=0.7064 chWA=0.6914 recall=[0.971, 0.5, 0.519] (57s)
+[ep13] loss=0.5943 train_acc=0.7876 val_acc=0.5674 macroF1=0.5697 chWA=0.6691 recall=[0.5, 0.6, 0.815] (62s)
+[ep14] loss=0.6081 train_acc=0.7815 val_acc=0.8227 macroF1=0.7118 chWA=0.7063 recall=[0.894, 0.9, 0.519] (66s)
+[ep15] loss=0.6027 train_acc=0.7693 val_acc=0.8227 macroF1=0.6921 chWA=0.6989 recall=[0.913, 0.6, 0.556] (71s)
+[ep16] loss=0.5634 train_acc=0.8225 val_acc=0.2908 macroF1=0.3270 chWA=0.5836 recall=[0.077, 0.8, 0.926] (76s)
+[ep17] loss=0.5853 train_acc=0.7845 val_acc=0.8298 macroF1=0.6870 chWA=0.6877 recall=[0.933, 0.6, 0.519] (80s)
+[ep18] loss=0.5116 train_acc=0.8346 val_acc=0.5177 macroF1=0.4874 chWA=0.6654 recall=[0.423, 0.5, 0.889] (85s)
+[ep19] loss=0.4426 train_acc=0.8467 val_acc=0.4752 macroF1=0.4674 chWA=0.6729 recall=[0.346, 0.5, 0.963] (90s)
+[ep20] loss=0.5178 train_acc=0.8042 val_acc=0.8723 macroF1=0.7632 chWA=0.7472 recall=[0.962, 0.7, 0.593] (94s)
+[ep21] loss=0.4014 train_acc=0.8619 val_acc=0.8369 macroF1=0.7165 chWA=0.7212 recall=[0.923, 0.6, 0.593] (99s)
+[ep22] loss=0.4637 train_acc=0.8255 val_acc=0.8511 macroF1=0.7300 chWA=0.7286 recall=[0.942, 0.6, 0.593] (104s)
+[ep23] loss=0.4486 train_acc=0.8452 val_acc=0.8440 macroF1=0.7131 chWA=0.7249 recall=[0.933, 0.6, 0.593] (109s)
+[ep24] loss=0.4204 train_acc=0.8741 val_acc=0.7943 macroF1=0.6763 chWA=0.7361 recall=[0.837, 0.7, 0.667] (113s)
+[ep25] loss=0.3893 train_acc=0.8498 val_acc=0.6312 macroF1=0.5780 chWA=0.7323 recall=[0.567, 0.6, 0.889] (118s)
+[ep26] loss=0.3889 train_acc=0.8589 val_acc=0.8298 macroF1=0.7302 chWA=0.8216 recall=[0.846, 0.6, 0.852] (122s)
+[ep27] loss=0.4042 train_acc=0.8498 val_acc=0.7447 macroF1=0.6477 chWA=0.7621 recall=[0.74, 0.6, 0.815] (127s)
+[early stop] ep 27
+[best] ep=20 val_macroF1=0.7632 total=127s
+[TEST] acc=0.8380 macroF1=0.6564 s_murmur=0.7296 recall=[0.933, 0.3, 0.667]
+[[98  5  2]
+ [ 7  3  0]
+ [ 7  2 18]]
+DONE

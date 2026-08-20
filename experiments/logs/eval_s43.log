@@ -1,0 +1,12 @@
+[env] device=cuda
+[data] patients=942 wavs=3158 labels={'Absent': 695, 'Unknown': 68, 'Present': 179}
+[split] loaded existing /root/heart-train/v3_split_seed42.json
+[feat] 400/3158 (0s)
+[feat] 800/3158 (0s)
+[feat] 1200/3158 (0s)
+[feat] 1600/3158 (0s)
+[feat] 2000/3158 (0s)
+[feat] 2400/3158 (0s)
+[feat] 2800/3158 (1s)
+[feat] cache ready: 3158 mels (0 computed, 1s)
+[s43_30ep] test s_murmur=0.7778 acc=0.8592 recall=[0.933, 0.4, 0.741] -> /root/heart-train/v4_probs_s43_30ep.npz

@@ -9,7 +9,11 @@ models/
 !demo/hmc-screening/models/
 !demo/hmc-screening/models/*.pt
 !demo/hmc-screening/models/*.json
+!experiments/models/
+!experiments/models/*.pt
 *.log
+!experiments/logs/
+!experiments/logs/*.log
 mel_cache*/
 features.npz
 app/assets/clips/

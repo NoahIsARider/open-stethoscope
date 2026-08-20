@@ -1,0 +1,34 @@
+[env] device=cuda
+Loading weights:   0%|          | 0/211 [00:00<?, ?it/s]Loading weights: 100%|██████████| 211/211 [00:00<00:00, 15676.45it/s]
+[transformers] [1mWav2Vec2Model LOAD REPORT[0m from: /root/wav2vec2
+Key                          | Status     |  | 
+-----------------------------+------------+--+-
+project_q.weight             | UNEXPECTED |  | 
+quantizer.codevectors        | UNEXPECTED |  | 
+project_hid.bias             | UNEXPECTED |  | 
+quantizer.weight_proj.bias   | UNEXPECTED |  | 
+quantizer.weight_proj.weight | UNEXPECTED |  | 
+project_q.bias               | UNEXPECTED |  | 
+project_hid.weight           | UNEXPECTED |  | 
+
+Notes:
+- UNEXPECTED:	can be ignored when loading from different task/architecture; not ok if you expect identical arch.
+[model] wav2vec2-base params=94.4M
+[data] 3162 wavs
+[feat] 200/3162 (23s)
+[feat] 400/3162 (46s)
+[feat] 600/3162 (69s)
+[feat] 800/3162 (91s)
+[feat] 1000/3162 (119s)
+[feat] 1200/3162 (150s)
+[feat] 1400/3162 (171s)
+[feat] 1600/3162 (186s)
+[feat] 1800/3162 (202s)
+[feat] 2000/3162 (217s)
+[feat] 2200/3162 (231s)
+[feat] 2400/3162 (248s)
+[feat] 2600/3162 (265s)
+[feat] 2800/3162 (283s)
+[feat] 3000/3162 (300s)
+[save] /root/heart-train/w2v_features.npz (3162 wavs, 314s total)
+DONE
