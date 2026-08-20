@@ -6,6 +6,7 @@ models/
 *.zip
 *.pt
 *.pth
+!demo/hmc-screening/models/
 !demo/hmc-screening/models/*.pt
 !demo/hmc-screening/models/*.json
 *.log
