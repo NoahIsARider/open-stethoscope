@@ -1,0 +1,6 @@
+# HMC demo runtime (simulation mode)
+aicrusaders>=0.2.0
+numpy
+
+# Real-inference mode extras:
+# torch, torchaudio, librosa, soundfile

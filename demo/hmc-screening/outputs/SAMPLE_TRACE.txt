@@ -1,0 +1,80 @@
+[1] Walkthroughs (3 representative patients)
+
+Patient: Murmur screening - S002  (S002)
+--------------------------------------------------------------------------
+  S002-intake          AI     conf=0.82 qual=0.82  PASS
+  S002-screening       AI     conf=0.82 qual=0.82  PASS  (Absent)
+  S002-plan            AI     conf=0.82 qual=0.82  PASS
+  -> 3/3 steps passed, 0 handover(s), 7.5s simulated
+
+Patient: Murmur screening - S008  (S008)
+--------------------------------------------------------------------------
+  S008-intake          AI     conf=0.68 qual=0.68  PASS
+  HANDOVER  ai->expert   [ai_escalation] below confidence floor (p_abs=0.15 < 0.75) -> doctor auscultation review
+  S008-screening       DOCTOR conf=0.92 qual=0.92  PASS  ()
+  HANDOVER  expert->ai   [policy] reassurance plan -> AI
+  S008-plan            AI     conf=0.68 qual=0.68  PASS
+  -> 3/3 steps passed, 2 handover(s), 16.7s simulated
+
+Patient: Murmur screening - S011  (S011)
+--------------------------------------------------------------------------
+  S011-intake          AI     conf=0.87 qual=0.11  FAIL
+  S011-screening       AI     conf=0.87 qual=0.11  FAIL  (Absent)
+  S011-plan            AI     conf=0.87 qual=0.11  FAIL
+  -> 0/3 steps passed, 0 handover(s), 7.5s simulated
+  ⚠️  MISSED POSITIVE: AI owned a murmur-PRESENT patient - this is the failure the clinic must learn from
+
+[2] Full clinic morning
+
+Clinic morning - 12 patients through 'murmur-hmc-adaptive'
+--------------------------------------------------------------------------
+patient  title                         who handled it          handovers  pass
+S001     Murmur screening - S001       AI handles autonomously         0  3/3
+S002     Murmur screening - S002       AI handles autonomously         0  3/3
+S003     Murmur screening - S003       AI handles autonomously         0  3/3
+S004     Murmur screening - S004       AI handles autonomously         0  3/3
+S005     Murmur screening - S005       AI handles autonomously         0  3/3
+S006     Murmur screening - S006       doctor-led screening            2  1/3
+S007     Murmur screening - S007       doctor-led screening            2  3/3
+S008     Murmur screening - S008       doctor-led screening            2  3/3
+S009     Murmur screening - S009       doctor-led screening            1  3/3
+S010     Murmur screening - S010       doctor-led screening            1  2/3
+S011     Murmur screening - S011       AI handles autonomously         0  0/3
+S012     Murmur screening - S012       AI handles autonomously         0  3/3
+
+  SAFETY: 2 murmur-positive patient(s) in roster, 1 handled by AI alone (⚠️  MISSED - the clinic must learn from this!)
+
+[3] SECI feedback loop
+
+SECI feedback loop - the clinic learns (3 rounds)
+--------------------------------------------------------------------------
+  SAFETY: 2 murmur-positive patient(s) in roster, 1 handled by AI alone (⚠️  MISSED - the clinic must learn from this!)
+
+Round 1:
+  [socialization  ] Across 12 runs the team averaged 0.7 handovers and 2.5/3 passed steps.
+  domain     missed positives detected (1) -> AI boundary tightened (min_confidence 0.75 -> 0.85, max_complexity 0.60 -> 0.50)
+  SAFETY: 2 murmur-positive patient(s) in roster, 1 handled by AI alone (⚠️  MISSED - the clinic must learn from this!)
+
+Round 2:
+  [socialization  ] Across 12 runs the team averaged 1.2 handovers and 2.5/3 passed steps.
+  [externalization] Handover accuracy (0.79) is below target; re-check the risk responsibility map.
+  patch       {'handover_timing': {'handover_overhead_budget': 1.4}}
+  recommend   {'risk_gate.base_threshold': 0.44}
+  domain     missed positives detected (1) -> AI boundary tightened (min_confidence 0.85 -> 0.95, max_complexity 0.50 -> 0.40)
+  SAFETY: 2 murmur-positive patient(s) in roster, 0 handled by AI alone (OK)
+
+Round 3:
+  [socialization  ] Across 12 runs the team averaged 1.8 handovers and 2.6/3 passed steps.
+  [externalization] Handover accuracy (0.60) is below target; re-check the risk responsibility map.
+  patch       {'ai_boundary': {'max_complexity': 0.2533}, 'expert_capability': {'max_steps_per_session': 7}, 'handover_timing': {'handover_overhead_budget': 1.8}}
+  recommend   {'risk_gate.base_threshold': 0.44}
+
+Meta-knowledge after learning:
+{
+  "version": 2,
+  "ai_boundary": {
+    "max_complexity": 0.2533,
+    "allowed_domains": [
+      "murmur_screening"
+    ],
+    "min_confidence": 0.95

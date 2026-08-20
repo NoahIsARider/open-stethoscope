@@ -6,6 +6,8 @@ models/
 *.zip
 *.pt
 *.pth
+!demo/hmc-screening/models/*.pt
+!demo/hmc-screening/models/*.json
 *.log
 mel_cache*/
 features.npz
