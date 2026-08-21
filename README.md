@@ -2,6 +2,10 @@
 
 **Open-source AI heart murmur detection for primary care.**
 
+> 🎧 **Try the live in-browser demo** → **https://noahisarider.github.io/open-stethoscope/**
+> The full 404K-parameter model runs locally in your browser (WebAssembly) —
+> upload a recording or play the real CirCor clips; no audio ever leaves your machine.
+
 Cardiovascular disease is the leading cause of death in China. In county and township health centers, general practitioners often lack the training to interpret heart sounds. Open Stethoscope brings cardiology-grade auscultation to every village doctor — for free, open source, and on-device.
 
 ## Why
