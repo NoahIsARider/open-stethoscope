@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Open Stethoscope — In-Browser Murmur Screening</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🩺</text></svg>" />
+<style>
+  :root {
+    --bg: #f4f7f6;
+    --card: #ffffff;
+    --ink: #16302b;
+    --muted: #5b6f6a;
+    --teal: #0e7c66;
+    --teal-dark: #0a5f4f;
+    --border: #dde7e4;
+    --green: #1e9e5a;
+    --amber: #e6a23c;
+    --red: #d64545;
+    --mono: ui-monospace, "SF Mono", "Cascadia Code", Consolas, monospace;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: var(--bg); color: var(--ink);
+    font: 15px/1.55 -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, "PingFang SC", "Microsoft YaHei", sans-serif;
+    padding: 32px 20px 60px;
+  }
+  .wrap { max-width: 1080px; margin: 0 auto; }
+  header { display: flex; align-items: baseline; gap: 14px; flex-wrap: wrap; margin-bottom: 6px; }
+  h1 { font-size: 24px; letter-spacing: -0.3px; }
+  h1 .steth { font-style: normal; }
+  .sub { color: var(--muted); font-size: 14px; margin-bottom: 24px; }
+  .grid { display: grid; grid-template-columns: 380px 1fr; gap: 20px; }
+  @media (max-width: 860px) { .grid { grid-template-columns: 1fr; } }
+  .card {
+    background: var(--card); border: 1px solid var(--border);
+    border-radius: 14px; padding: 20px; box-shadow: 0 1px 3px rgba(22,48,43,.05);
+  }
+  .card h2 { font-size: 13px; text-transform: uppercase; letter-spacing: .08em; color: var(--teal); margin-bottom: 12px; }
+  .btn {
+    display: inline-block; border: 1px solid var(--border); background: #fff;
+    color: var(--ink); border-radius: 9px; padding: 8px 14px; font-size: 13.5px;
+    cursor: pointer; transition: all .12s; font-family: inherit;
+  }
+  .btn:hover { border-color: var(--teal); color: var(--teal); }
+  .btn.primary { background: var(--teal); border-color: var(--teal); color: #fff; font-weight: 600; }
+  .btn.primary:hover { background: var(--teal-dark); color: #fff; }
+  .btn:disabled { opacity: .45; cursor: not-allowed; }
+  .btn .tag { font-size: 11px; opacity: .75; font-weight: 500; }
+  .samples { display: flex; flex-direction: column; gap: 8px; margin-bottom: 16px; }
+  .samples .btn { text-align: left; }
+  .row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin: 12px 0; }
+  label { font-size: 13px; color: var(--muted); }
+  select {
+    font: inherit; padding: 6px 10px; border-radius: 8px; border: 1px solid var(--border);
+    background: #fff; color: var(--ink);
+  }
+  .filebtn { position: relative; overflow: hidden; }
+  .filebtn input[type=file] { position: absolute; inset: 0; opacity: 0; cursor: pointer; }
+  .status { font-family: var(--mono); font-size: 12px; color: var(--muted); margin-top: 14px; }
+  .status .dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: #bbb; margin-right: 6px; }
+  .status .dot.ok { background: var(--green); }
+  .status .dot.err { background: var(--red); }
+  /* results */
+  .verdict { display: flex; align-items: baseline; gap: 12px; margin-bottom: 18px; flex-wrap: wrap; }
+  .verdict .big { font-size: 30px; font-weight: 700; letter-spacing: -0.5px; }
+  .verdict .conf { font-family: var(--mono); color: var(--muted); font-size: 14px; }
+  .bar { display: grid; grid-template-columns: 90px 1fr 52px; align-items: center; gap: 10px; margin: 9px 0; }
+  .bar .name { font-size: 14px; }
+  .bar .track { height: 14px; background: #eef3f1; border-radius: 8px; overflow: hidden; }
+  .bar .fill { height: 100%; border-radius: 8px; transition: width .35s ease; width: 0; }
+  .bar .pct { font-family: var(--mono); font-size: 13px; text-align: right; }
+  canvas { width: 100%; height: 120px; background: #0d1f1b; border-radius: 10px; margin-top: 14px; display: block; }
+  canvas.mel { height: 170px; }
+  .meta { font-size: 12.5px; color: var(--muted); margin-top: 16px; line-height: 1.7; }
+  .meta b { color: var(--ink); }
+  .disclaimer {
+    margin-top: 18px; padding: 12px 14px; border-left: 3px solid var(--amber);
+    background: #fdf8ec; border-radius: 0 8px 8px 0; font-size: 13px; color: #7a5b16;
+  }
+  .foot { margin-top: 28px; text-align: center; color: var(--muted); font-size: 12.5px; }
+  .foot a { color: var(--teal); text-decoration: none; }
+  .foot a:hover { text-decoration: underline; }
+  .hidden { display: none; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>🩺 Open Stethoscope</h1>
+    <span class="sub" id="model-status">…</span>
+  </header>
+  <p class="sub">Heart-murmur screening entirely in your browser — a 404K-parameter model runs locally via WebAssembly. No audio leaves your machine.</p>
+
+  <div class="grid">
+    <!-- left: input -->
+    <div class="card">
+      <h2>1 · Input</h2>
+      <div class="samples" id="samples">
+        <button class="btn" data-sample="50734_AV.wav"><span class="tag">real clip · murmur positive</span><br/>50734_AV (Present)</button>
+        <button class="btn" data-sample="50625_AV.wav"><span class="tag">real clip · unlabelled</span><br/>50625_AV (Unknown)</button>
+        <button class="btn" data-sample="50635_AV.wav"><span class="tag">real clip · murmur negative</span><br/>50635_AV (Absent)</button>
+      </div>
+      <div class="row">
+        <label for="loc">Position</label>
+        <select id="loc">
+          <option value="MV">MV — mitral (apex)</option>
+          <option value="AV">AV — aortic</option>
+          <option value="PV">PV — pulmonary</option>
+          <option value="TV">TV — tricuspid</option>
+        </select>
+      </div>
+      <div class="row">
+        <button class="btn primary" id="analyze" disabled>Analyze</button>
+        <button class="btn filebtn">Upload audio<input type="file" id="file" accept="audio/*" /></button>
+      </div>
+      <p class="meta">Upload a WAV / MP3 / OGG recording (5–15 s recommended, 4 kHz target; longer clips are trimmed to the first ~8 s). The model was trained on 4 kHz phonocardiograms recorded with a digital stethoscope at the mitral valve — other positions are supported but may be less reliable.</p>
+      <div class="status"><span class="dot" id="dot"></span><span id="status-text">loading model…</span></div>
+    </div>
+
+    <!-- right: results -->
+    <div class="card">
+      <h2>2 · Screening result</h2>
+      <div class="verdict" id="verdict">
+        <span class="big" id="verdict-label">—</span>
+        <span class="conf" id="verdict-conf"></span>
+      </div>
+      <div id="bars">
+        <div class="bar"><span class="name">Absent</span><div class="track"><div class="fill" id="fill-0" style="background:var(--green)"></div></div><span class="pct" id="pct-0">—</span></div>
+        <div class="bar"><span class="name">Unknown</span><div class="track"><div class="fill" id="fill-1" style="background:var(--amber)"></div></div><span class="pct" id="pct-1">—</span></div>
+        <div class="bar"><span class="name">Present</span><div class="track"><div class="fill" id="fill-2" style="background:var(--red)"></div></div><span class="pct" id="pct-2">—</span></div>
+      </div>
+      <canvas id="wave" width="640" height="120"></canvas>
+      <canvas id="mel" class="mel" width="640" height="170"></canvas>
+      <div class="disclaimer">
+        ⚠️ Screening signal only — <b>not a medical diagnosis</b>. This model detects murmurs with
+        sensitivity ≈ 0.78 (s_murmur) on the held-out PhysioNet 2022 test set; it cannot replace a clinician.
+      </div>
+    </div>
+  </div>
+
+  <div class="foot">
+    <a href="https://github.com/NoahIsARider/open-stethoscope">github.com/NoahIsARider/open-stethoscope</a>
+    · model: 404K-param fusion net (CirCor DigiScope, PhysioNet 2022 Challenge) · inference: ONNX Runtime Web (WASM)
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/onnxruntime-web@1.27.0/dist/ort.min.js"></script>
+<script type="module" src="./js/main.js"></script>
+</body>
+</html>

@@ -111,8 +111,34 @@ All scripts auto-detect the `experiments/` layout; the original server layout
 - [x] Train lightweight murmur classifier (multi-position fusion, s_murmur 0.70)
 - [x] Beat the 2022 Challenge champion (v4: longer training + tuned thresholds → **0.7815 > 0.780**)
 - [x] Multi-seed ensemble with k-fold-based model selection (5-fold CV done: 0.704 ± 0.06)
-- [ ] On-device inference demo (edge deployment)
+- [x] **In-browser demo** (`demo/browser/` — model runs locally in WASM, no server, no upload)
 - [ ] Chinese primary-care deployment guide
+
+## Browser demo (try it now)
+
+**`demo/browser/`** is a fully static, zero-build page that runs the trained model
+*entirely in your browser* via [ONNX Runtime Web](https://onnxruntime.ai/) (WASM):
+
+- **404K-parameter model** exported to ONNX (1.6 MB) + librosa-exact mel front-end in JS
+- Loads 3 real CirCor clips (positive / unlabelled / negative) or your own WAV/MP3
+- No audio ever leaves your machine — inference happens locally
+
+```bash
+cd demo/browser && python3 -m http.server 8000   # then open http://localhost:8000
+```
+
+Deploy anywhere static (GitHub Pages / Vercel / nginx). The inference chain is
+verified end-to-end against the training environment: JS mel == numpy mel ==
+librosa 1.0.0 (max diff < 0.3 dB), ONNX == PyTorch (< 1e-6), and final
+probabilities match the server's ground-truth inference to < 1e-3
+(`demo/browser/tools/verify.py`).
+
+Regenerate the artifacts with:
+
+```bash
+python3 demo/browser/tools/export_onnx.py   # model.onnx + mel_params.json
+python3 demo/browser/tools/verify.py assets/samples/*.wav   # vs training env
+```
 
 ## Dataset
 
